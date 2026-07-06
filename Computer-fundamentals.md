@@ -35,63 +35,157 @@ process suddenly maxing a core can signal a miner or a runaway malicious script)
 
 ---
 
-## 2. RAM vs storage (memory vs disk)
+## RAM vs storage (HDD/SSD) & how a program loads into memory
 
 **What it is:**
-RAM (memory) is fast, temporary storage for programs that are *currently
-running*. It's wiped when the computer powers off. Disk (HDD/SSD) is slower but
-*permanent* — it keeps files after shutdown.
+Storage (HDD/SSD) is where files live *permanently* — it survives shutdown but
+is slower. RAM is fast, *temporary* memory for whatever is running right now,
+and it's wiped when the power goes off.
+
+Here's the part that ties it together — how a program actually runs:
+1. A program sits on disk as a file (e.g. `chrome.exe`) — just data, doing nothing.
+2. When you launch it, the operating system copies it from disk into RAM.
+3. Once it's in RAM, the CPU can execute its instructions fast.
+4. A program that's been loaded into memory and is running is called a **process**.
+
+So: on disk = a sleeping program; in RAM = a running process.
 
 **How I practiced it:**
-- Task Manager → Memory graph while opening/closing programs.
-- Linux: `free -h` to see RAM usage, `df -h` to see disk usage.
+- Windows: opened Task Manager → Processes tab, and watched a program appear as
+  a running process the moment I launched it, then disappear when I closed it.
+- Linux: ran `ps aux` to list running processes, and `free -h` to see how much
+  RAM was in use before vs after opening an app.
 
 **Real-world example:**
-An unsaved document lives in RAM — that's why a power cut loses it, but a saved
-file survives because it's written to disk.
+A game takes a few seconds to "load" — that pause is the OS copying it from the
+slower disk into fast RAM. Once loaded, it runs smoothly because the CPU is now
+reading from RAM, not the disk.
 
 **Red team use:**
-Passwords and encryption keys sit in RAM while in use. Attackers dump memory
-(e.g. reading the LSASS process on Windows) to steal credentials that were never
-written to disk.
+Attackers exploit the fact that a running process lives in RAM. "Fileless
+malware" runs entirely in memory and never writes itself to disk, specifically
+to avoid antivirus, which mostly scans files on disk.
 
 **Blue team use:**
-Memory forensics is a core investigation skill. Tools like Volatility (Module 7)
-capture RAM to find hidden processes, injected code, and credentials — evidence
-that vanishes on reboot, so responders grab memory *before* powering a machine off.
+Because the useful evidence is in RAM and vanishes on reboot, responders capture
+a machine's memory *before* powering it off. Memory forensics then reveals
+running processes, hidden or injected code, and network connections — the things
+memory-only attacks try to hide. Rule of thumb I picked up: "if it's not on disk,
+look in memory."
 
 ---
 
-## 3. Data representation (binary, hex, Base64, encoding)
+## Credentials in memory — the LSASS concept
 
 **What it is:**
-Computers store everything as binary (0s and 1s). Hexadecimal (hex) is a shorter
-way to write binary. Base64 and URL-encoding are ways to represent data as text
-so it survives being sent over things like web requests.
+LSASS (Local Security Authority Subsystem Service) is a core Windows process
+that handles logins. While a user is signed in, it holds credential material in
+its memory. This is a concrete example of the bigger idea I keep running into:
+sensitive data lives in RAM while it's being used, not just on disk.
 
-Key point: **encoding is NOT encryption.** Base64 hides nothing — it's easily
-reversed. It just repackages data.
+**Why it's a target (concept only):**
+Because LSASS concentrates credential material in one place in memory, it's a
+known target for credential theft. MITRE ATT&CK catalogues this as T1003.001
+(OS Credential Dumping: LSASS Memory). I'm noting the concept and the technique
+ID — not the how-to — because what I actually want is to understand and detect
+this, not perform it.
 
-**How I practiced it:**
-- Used CyberChef (cyberchef.io) to convert text ↔ binary ↔ hex ↔ Base64 and
-  watch how the same data looks in each form.
-- Decoded a Base64 string by hand to prove it's reversible.
+**The defensive side (what caught my interest):**
+Since this is so common, defenders build detection around it:
+- monitoring for unusual processes trying to read LSASS's memory
+- hardening LSASS with extra Windows protections
+- reviewing security event logs for the access patterns credential theft leaves behind
 
-**Real-world example:**
-Email attachments and images inside web pages are often Base64 — that long
-gibberish string is just a file turned into text.
+Being able to *spot* credential dumping in logs feels like a real analyst skill,
+and it connects straight back to why memory matters in the first place.
 
-**Red team use:**
-Attackers Base64-encode malicious commands to slip them past simple filters
-(e.g. `powershell -enc <base64>`), because the payload doesn't "look" malicious
-at a glance.
+## Fetch–Decode–Execute — what the CPU is *actually* doing
 
-**Blue team use:**
-Analysts learn to spot and decode Base64 in logs — a Base64 blob in a PowerShell
-command line is a classic red flag, and decoding it reveals what the attacker
-actually tried to run.
+Everyone says "the CPU runs instructions." Fine — but what does that mean, step
+by step? The CPU runs a tiny loop, billions of times a second, and it only ever
+does three things:
+
+1. **Fetch** — go to memory and grab the next instruction.
+2. **Decode** — figure out what that instruction means ("add these two numbers",
+   "move this value", "jump somewhere else").
+3. **Execute** — actually do it, and store the result.
+
+Then it repeats. Forever. That loop is literally all a computer does — everything
+else (games, browsers, malware) is just billions of these three steps.
+
+The pieces involved:
+- The **Program Counter (PC)** is a pointer that holds the address of the next
+  instruction. After each step it moves forward — unless an instruction tells it
+  to *jump* somewhere else.
+- Instructions and data both live in RAM; the CPU keeps fetching from wherever
+  the PC points.
+
+**Why this matters (the part that makes it click for security):**
+If an attacker can change what the Program Counter points to, they can make the
+CPU "execute" data of their choosing instead of the real program. That single
+idea — hijacking the flow of execution — is the beating heart of memory-corruption
+exploits (the buffer-overflow family). I'm not going deep on exploitation here,
+but knowing that "control the PC = control the CPU" is *why* those attacks exist
+made the whole topic suddenly feel important instead of abstract.
+
+Analogy that made it stick: the CPU is someone following a recipe card by card.
+Fetch = pick up the next card. Decode = read what it says. Execute = do it. The
+Program Counter is your finger tracking which card is next. An exploit is
+someone slipping a fake card into the stack while your finger keeps moving.
 
 ---
 
-## Status
-🚧 Actively learning — more topics added as I go.
+## 32-bit vs 64-bit — what the number actually refers to
+
+This isn't about speed like I assumed. It's mostly about **how big a number the
+CPU can handle in one go**, and the biggest consequence is **how much memory it
+can address.**
+
+- A **32-bit** CPU/OS works with 32-bit addresses. The largest number 32 bits can
+  represent is about 4.3 billion — so it can only address ~**4 GB of RAM**. Even
+  if you install 16 GB, a 32-bit system can't "see" past ~4 GB.
+- A **64-bit** system uses 64-bit addresses, which can count to a number so
+  enormous the RAM limit is effectively irrelevant for now.
+
+That 4 GB wall is the real, practical reason the whole world moved to 64-bit.
+
+**How I verified it myself:**
+    Windows:  Settings → System → About → "System type"
+    Linux:    uname -m      ( x86_64 = 64-bit,  i686/i386 = 32-bit )
+    Linux:    lscpu         ( look at "Architecture" and "CPU op-mode(s)" )
+
+**Why it matters practically:**
+- Software has to match: a 32-bit program can run on a 64-bit system, but not the
+  reverse. This bites you constantly when installing tools — grabbing the wrong
+  build is a classic "why won't this run?" moment.
+- In security tooling you're forever choosing x86 (32-bit) vs x64 (64-bit)
+  versions of things, and picking wrong just fails silently or crashes. Now I know
+  *why* the choice exists instead of guessing.
+
+---
+
+## Endianness — the order bytes are stored in (awareness)
+
+When a number is too big for one byte, it gets split across several bytes — and
+there are two conventions for what order to store them in. That's endianness.
+
+Take the number `0x12345678` (four bytes: 12 34 56 78):
+- **Big-endian:** stored 12 34 56 78 — the "big" end first, the way we write it.
+- **Little-endian:** stored 78 56 34 12 — the "little" (smallest) end first,
+  looking reversed to human eyes.
+
+Most computers you'll touch (Intel/AMD, i.e. x86) are **little-endian**, so bytes
+look backwards in memory. Networks, by convention, use big-endian ("network byte
+order").
+
+**Why I bothered to note this (awareness level):**
+The first time you stare at a hex dump in a tool like Wireshark or a hex editor
+and a value looks *backwards*, endianness is the answer — you're not misreading
+it, the machine just stored it little-end first. Knowing the word saves you an
+hour of confusion. That's all I need for now; the deep detail can wait until it
+actually comes up.
+
+Analogy: same phone number, two habits for writing it down. Big-endian writes it
+left-to-right like you'd say it; little-endian jots the last digits first. Same
+number — you just have to know which habit you're reading.
+
