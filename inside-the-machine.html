@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inside the Machine — a visual descent into computer architecture</title>
+<meta name="description" content="Step inside the computer and watch what actually happens: the memory hierarchy, real latency at human scale, the journey of a single byte, and the fetch-decode-execute datapath. A research-grade yet approachable interactive by Faiza." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171;
+    --gc:0 0 14px rgba(34,211,238,.55); --ga:0 0 14px rgba(251,191,36,.55); --gv:0 0 14px rgba(167,139,250,.55); --gg:0 0 14px rgba(52,211,153,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+
+  /* ambient circuit backdrop */
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.6}
+  .field .grid{position:absolute;inset:0;
+    background-image:linear-gradient(rgba(34,211,238,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.05) 1px,transparent 1px);
+    background-size:44px 44px;mask-image:radial-gradient(circle at 50% 30%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 30%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.25),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--cyan);box-shadow:var(--gc);animation:run 5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  /* hero */
+  .hero{min-height:92vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--cyan);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(34px,7.5vw,74px);line-height:1;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--cyan),var(--violet) 60%,var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:var(--gg);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--cyan);color:var(--text);transform:translateY(-2px);box-shadow:var(--gc)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line);position:relative}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--violet);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--cyan)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--cyan),var(--violet));color:var(--ink);border-color:transparent;font-weight:700}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+  .center{text-align:center}
+  .rowlbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  /* §1 memory hierarchy — cross-section strata */
+  .strata{display:flex;flex-direction:column;gap:8px}
+  .stratum{display:flex;align-items:center;gap:14px;cursor:pointer;transition:.16s}
+  .stratum .bar{height:46px;border-radius:9px;border:1px solid var(--line);display:flex;align-items:center;padding:0 16px;font-family:var(--mono);font-weight:700;font-size:14px;color:var(--ink);transition:.2s;position:relative;overflow:hidden;white-space:nowrap}
+  .stratum .meta{font-family:var(--mono);font-size:12px;color:var(--dim);flex:0 0 auto}
+  .stratum:hover .bar,.stratum.active .bar{filter:brightness(1.15);box-shadow:0 0 16px rgba(255,255,255,.12)}
+  .stratum.active .meta{color:var(--muted)}
+  .hint-line{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin:2px 4px}
+  .detail{margin-top:22px;min-height:96px;background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:18px;transition:.2s}
+  .detail .dt{font-family:var(--mono);font-weight:700;font-size:16px;margin-bottom:4px}
+  .detail .dstats{display:flex;gap:22px;flex-wrap:wrap;margin:10px 0 12px}
+  .detail .dstat .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .detail .dstat .v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px}
+  .detail .dbody{font-size:14px;color:var(--muted)}
+
+  /* §2 latency at human scale */
+  .lsel{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+  .lsel button{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:9px 13px;border-radius:9px;cursor:pointer;transition:.15s}
+  .lsel button:hover{color:var(--text);border-color:var(--dim)}
+  .lsel button.on{background:var(--cyan);color:var(--ink);border-color:transparent;font-weight:700}
+  .scaleview{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+  @media(max-width:600px){.scaleview{grid-template-columns:1fr}}
+  .sv{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center}
+  .sv .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .sv .real{font-family:var(--mono);font-size:clamp(24px,5vw,34px);font-weight:700;color:var(--cyan);margin-top:8px}
+  .sv .human{font-family:var(--mono);font-size:clamp(22px,4.5vw,30px);font-weight:700;color:var(--amber);margin-top:8px}
+  .sv .cyc{font-size:12px;color:var(--dim);margin-top:8px;font-family:var(--mono)}
+  .sv .analogy{font-size:14px;color:var(--muted);margin-top:8px;min-height:40px}
+  .logbar{margin-top:22px}
+  .logbar .ll{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:8px}
+  .logtrack{height:20px;background:var(--panel-2);border:1px solid var(--line);border-radius:99px;overflow:hidden;position:relative}
+  .logfill{height:100%;width:0;border-radius:99px;transition:width .9s cubic-bezier(.3,0,.2,1)}
+  .scaleframe{font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center;margin-top:8px}
+
+  /* §3 journey of a byte */
+  .journey{position:relative;padding:8px 0 4px}
+  .stops{display:flex;justify-content:space-between;position:relative;z-index:2;flex-wrap:nowrap;overflow-x:auto;gap:4px;padding-bottom:6px}
+  .stop{flex:1;min-width:70px;text-align:center}
+  .stop .dotnode{width:20px;height:20px;border-radius:50%;background:var(--panel-2);border:2px solid var(--line);margin:0 auto;transition:.3s}
+  .stop.hit .dotnode{background:var(--cyan);border-color:var(--cyan);box-shadow:var(--gc)}
+  .stop .sn{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px}
+  .stop .st{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:2px}
+  .rail{position:absolute;top:16px;left:6%;right:6%;height:2px;background:var(--line);z-index:1}
+  .railfill{position:absolute;top:16px;left:6%;height:2px;background:var(--cyan);box-shadow:var(--gc);width:0;z-index:1;transition:width .6s linear}
+  .clock{font-family:var(--mono);font-size:clamp(26px,6vw,40px);font-weight:700;color:var(--amber);text-align:center;margin-top:26px}
+  .clocklbl{text-align:center;font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:2px}
+  .jmsg{text-align:center;color:var(--muted);font-size:14px;margin-top:14px;min-height:22px}
+
+  /* §4 datapath */
+  .cpu{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:640px){.cpu{grid-template-columns:1fr}}
+  .ram{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:16px;position:relative}
+  .ram .rt{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
+  .ram .pcbadge{color:var(--cyan)}
+  .instr{font-family:var(--mono);font-size:13px;padding:9px 12px;border-radius:8px;display:flex;gap:10px;align-items:center;color:var(--muted);transition:.25s;position:relative}
+  .instr .addr{color:var(--dim);font-size:11px}
+  .instr .bits{color:var(--dim);font-size:10px;margin-left:auto}
+  .instr.active{background:rgba(34,211,238,.12);color:var(--text)}
+  .instr.active .addr{color:var(--cyan)} .instr.active .bits{color:var(--violet)}
+  .instr .pc{position:absolute;left:-3px;color:var(--cyan);opacity:0;transition:.25s}
+  .instr.active .pc{opacity:1;left:1px}
+  .core{display:flex;flex-direction:column;gap:11px}
+  .phase{border:1px solid var(--line);border-radius:12px;padding:13px;display:flex;gap:12px;align-items:center;background:var(--panel-2);transition:.3s}
+  .phase .lamp{width:13px;height:13px;border-radius:50%;background:var(--line);transition:.3s;flex:0 0 13px}
+  .phase.lit{border-color:var(--amber)} .phase.lit .lamp{background:var(--amber);box-shadow:var(--ga)}
+  .phase .pn{font-family:var(--mono);font-weight:700;font-size:14px}
+  .phase .pd{font-size:11.5px;color:var(--muted)}
+  .alu{border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--panel-2);text-align:center;font-family:var(--mono);font-size:13px;color:var(--muted);transition:.3s}
+  .alu.fire{border-color:var(--green);color:var(--green);box-shadow:var(--gg)}
+  .regfile{display:flex;gap:8px;justify-content:center;margin-top:2px}
+  .regcell{font-family:var(--mono);font-size:13px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 14px;transition:.3s}
+  .regcell .rn{font-size:10px;color:var(--dim)}
+  .regcell .rv{font-weight:700;font-size:16px;color:var(--amber)}
+  .regcell.upd{border-color:var(--amber);box-shadow:var(--ga)}
+  .regcell.out .rv{color:var(--green)}
+
+  /* §5 toggles */
+  .bittoggle{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:max-content;margin:0 auto}
+  .bittoggle button{font-family:var(--mono);font-size:14px;background:transparent;color:var(--muted);border:none;padding:11px 22px;cursor:pointer;transition:.15s}
+  .bittoggle button.on{background:var(--cyan);color:var(--ink);font-weight:700}
+  .capnum{font-family:var(--mono);font-size:clamp(24px,5vw,34px);font-weight:700;color:var(--cyan);text-align:center;margin-top:20px}
+  .capsub{text-align:center;color:var(--muted);font-size:14px;margin-top:4px;min-height:40px}
+  .vial{margin-top:20px;height:26px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line);overflow:hidden}
+  .vial .fillbar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));width:0;transition:width 1s cubic-bezier(.4,0,.2,1);border-radius:99px}
+  .divider{height:1px;background:var(--line);margin:30px 0}
+  .endrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  .ebyte{font-family:var(--mono);font-size:19px;font-weight:700;width:62px;height:62px;border-radius:11px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--panel-2);transition:.45s cubic-bezier(.5,0,.3,1)}
+  .ebyte.b0{color:var(--cyan)} .ebyte.b1{color:var(--violet)} .ebyte.b2{color:var(--amber)} .ebyte.b3{color:var(--green)}
+  .endnote{text-align:center;font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:16px}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  .srcnote{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:20px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.7}
+
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:18%;left:0;right:0"></div>
+  <div class="trace" style="top:41%;left:0;right:0;animation-delay:1.5s"></div>
+  <div class="trace" style="top:63%;left:0;right:0"></div>
+  <div class="trace" style="top:82%;left:0;right:0;animation-delay:2.4s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">a visual descent · module 01 foundations</div>
+    <h1>Inside<br/>the <span class="em">machine</span></h1>
+    <p>Shrink down and step inside a running computer. Watch where data lives, how impossibly far apart "fast" and "slow" really are, and follow a single byte on its journey to the processor.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · every panel below is live — click, run, explore</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">The memory hierarchy</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Speed, at human scale</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Journey of a byte</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">Inside the CPU core</div></a>
+      <a class="tcard" href="#s5"><div class="tn">05</div><div class="tt">Word size &amp; byte order</div></a>
+    </nav>
+    <div class="cue">descend ↓</div>
+  </header>
+
+  <!-- §1 memory hierarchy -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> the lay of the land</div>
+    <h2>The memory hierarchy</h2>
+    <p class="lead">A computer doesn't have one kind of memory — it has a <b>stack of them</b>, trading size against speed. Tiny and blazing fast at the top (inside the CPU), enormous and slow at the bottom. The bar width below shows <b>capacity</b> (how much fits); the colour shows <b>speed</b>. Click any layer to go inside it.</p>
+    <div class="stage">
+      <div class="hint-line"><span>◄ faster · smaller</span><span>bigger · slower ►</span></div>
+      <div class="strata" id="strata"></div>
+      <div class="detail" id="hierDetail">Click a layer to inspect it — its real capacity, latency, and what actually lives there.</div>
+    </div>
+    <div class="why"><b>why a security person cares</b>Credentials and encryption keys live in the fast top layers (registers, cache, RAM) while in use — never touching the disk. That's the entire premise of memory forensics: the secrets are up here, and they vanish on power-off.</div>
+    <p class="note">// see your own machine's layers:  Linux → lscpu  (look for L1d/L1i/L2/L3)  ·  Windows → Task Manager → Performance → CPU</p>
+  </section>
+
+  <!-- §2 latency human scale -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> the great distance</div>
+    <h2>How far "fast" and "slow" really are</h2>
+    <p class="lead">The numbers below are real. But nanoseconds mean nothing to a human — so here's the classic trick researchers use: <b>imagine one CPU cycle stretched to one second.</b> On that scale, the gaps between memory layers become terrifyingly human. Pick a layer.</p>
+    <div class="stage">
+      <div class="lsel" id="lsel"></div>
+      <div class="scaleview">
+        <div class="sv"><div class="k">real latency</div><div class="real" id="svReal">—</div><div class="cyc" id="svCyc"></div></div>
+        <div class="sv"><div class="k">if 1 cycle = 1 second</div><div class="human" id="svHuman">—</div><div class="analogy" id="svAnalogy"></div></div>
+      </div>
+      <div class="logbar">
+        <div class="ll">distance on a log scale (each step ≈ 10× further than the last)</div>
+        <div class="logtrack"><div class="logfill" id="logFill"></div></div>
+        <div class="scaleframe">register &nbsp;·&nbsp; L1 &nbsp;·&nbsp; L2 &nbsp;·&nbsp; L3 &nbsp;·&nbsp; RAM &nbsp;·&nbsp; SSD &nbsp;·&nbsp; HDD</div>
+      </div>
+    </div>
+    <div class="why"><b>why this matters</b>This is <em>the</em> insight behind fast software: a cache miss that falls back to RAM is like a 3-second task suddenly taking 6 minutes. Reaching disk is like waiting days. Performance engineering — and a lot of exploitation and defense timing — lives in these gaps.</div>
+    <p class="note">// numbers below are widely-cited approximations (Jeff Dean / Brendan Gregg "latency numbers"); exact values vary by CPU, but the <b>orders of magnitude</b> are what matter.</p>
+  </section>
+  <!-- §3 journey of a byte -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> follow the data</div>
+    <h2>The journey of a single byte</h2>
+    <p class="lead">You open a file. That byte starts life on the <b>disk</b> and has to climb all the way up to a <b>CPU register</b> before it can be used. Watch it travel — and watch the clock, because most of the total time is spent on the very first hop.</p>
+    <div class="stage">
+      <div class="journey">
+        <div class="rail"></div><div class="railfill" id="railFill"></div>
+        <div class="stops" id="stops"></div>
+      </div>
+      <div class="clock" id="jClock">0 ns</div>
+      <div class="clocklbl">elapsed (real time, approx)</div>
+      <div class="jmsg" id="jMsg">Press play to send the byte on its way.</div>
+      <div class="ctrls">
+        <button class="btn solid" id="jPlay">▶ send the byte</button>
+        <button class="btn" id="jReset">reset</button>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>This climb is why <b>caching</b> exists — and why a program is <em>copied from disk into RAM</em> to run, becoming a live <b>process</b>. "Fileless" malware never lands on disk at all; it lives only up in RAM to stay invisible to scanners that watch storage.</div>
+    <p class="note">// the takeaway: reaching disk is ~100,000× slower than reaching cache. The whole memory hierarchy exists to avoid that trip whenever possible.</p>
+  </section>
+
+  <!-- §4 datapath -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> the engine room</div>
+    <h2>Inside the CPU core: fetch · decode · execute</h2>
+    <p class="lead">Down at the core, the CPU repeats three steps billions of times a second: <b>fetch</b> the next instruction (the <b>Program Counter</b> says which), <b>decode</b> what it means, then <b>execute</b> it in the <b>ALU</b> and write the result to a <b>register</b>. Run this real 5-instruction program and watch it compute 5 + 3.</p>
+    <div class="stage">
+      <div class="cpu">
+        <div class="ram">
+          <div class="rt"><span>RAM · instructions (with machine code)</span><span class="pcbadge" id="pcBadge">PC → 0x00</span></div>
+          <div id="instrList"></div>
+        </div>
+        <div class="core">
+          <div class="phase" id="phFetch"><span class="lamp"></span><div><div class="pn">Fetch</div><div class="pd">read the instruction the PC points to, over the bus</div></div></div>
+          <div class="phase" id="phDecode"><span class="lamp"></span><div><div class="pn">Decode</div><div class="pd">translate the bits into an operation</div></div></div>
+          <div class="phase" id="phExecute"><span class="lamp"></span><div><div class="pn">Execute</div><div class="pd">the ALU computes; the result is written back</div></div></div>
+          <div class="alu" id="aluBox">ALU · idle</div>
+          <div class="regfile">
+            <div class="regcell" id="rcR1"><div class="rn">R1</div><div class="rv">0</div></div>
+            <div class="regcell" id="rcR2"><div class="rn">R2</div><div class="rv">0</div></div>
+            <div class="regcell out" id="rcOut"><div class="rn">OUT</div><div class="rv">–</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="ctrls">
+        <button class="btn solid" id="cpuPlay">▶ run</button>
+        <button class="btn" id="cpuStep">step once</button>
+        <button class="btn" id="cpuReset">reset</button>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>The Program Counter decides what runs next. If an attacker can overwrite it (e.g. via a buffer overflow), they redirect the CPU into <em>their</em> code. "Control the PC = control the machine" is the foundation of memory-corruption exploitation — and of the defenses built to stop it.</div>
+    <p class="note">// the "machine code" column is the real idea: every instruction is just a number the CPU decodes. Human-readable assembly (LOAD, ADD) is only there for us.</p>
+  </section>
+
+  <!-- §5 word size + endianness -->
+  <section id="s5">
+    <div class="eyebrow"><span class="no">05</span> the fine print</div>
+    <h2>Word size &amp; byte order</h2>
+    <p class="lead"><b>32 vs 64-bit</b> is how large an address the CPU handles at once — which caps how much RAM it can even see. 32 bits hits a wall near <b>4 GB</b>; 64 bits reaches a number so vast the limit stops mattering. That ceiling is why the whole world moved to 64-bit.</p>
+    <div class="stage">
+      <div class="bittoggle"><button id="b32">32-bit</button><button id="b64" class="on">64-bit</button></div>
+      <div class="capnum" id="capNum">~16 exabytes</div>
+      <div class="capsub" id="capSub">addressable memory — effectively limitless for now</div>
+      <div class="vial"><div class="fillbar" id="vialFill"></div></div>
+      <div class="divider"></div>
+      <p class="lead" style="margin-top:0"><b>Endianness</b> is the order the bytes get stored in. Take the value <b>0x12345678</b>. Big-endian stores it the way we read it; little-endian — what your Intel/AMD laptop uses — stores the small end first, so it looks reversed in a hex dump.</p>
+      <div class="bittoggle" style="margin:8px auto 0"><button id="eBig">big-endian</button><button id="eLittle" class="on">little-endian</button></div>
+      <div class="endrow" id="endRow"></div>
+      <div class="endnote" id="endNote"></div>
+    </div>
+    <div class="why"><b>why a security person cares</b>Grab the wrong build (x86 vs x64) and tools fail silently. And the first time a value looks "backwards" in Wireshark or a hex editor, endianness is the reason — not a mistake in your reading.</div>
+    <p class="note">// check yours:  Windows → Settings → System → About → "System type"  ·  Linux → uname -m  (x86_64 = 64-bit)</p>
+  </section>
+
+  <footer>
+    <div class="fmono">module 01 of my cybersecurity foundations — the machine, from the inside.</div>
+    <div class="srcnote">Latency figures are standard order-of-magnitude approximations from commonly-cited sources (Jeff Dean's "Numbers Everyone Should Know" and Brendan Gregg's <em>Systems Performance</em>). Real values vary by hardware; the point is the scale between layers, which holds true everywhere.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ============ §1 memory hierarchy ============ */
+const LAYERS=[
+  {id:"reg",name:"Registers",cap:"a few KB",lat:"~0.3 ns",cyc:"1 cycle",w:8,color:"#fbbf24",
+   body:"The fastest storage that exists — tiny slots physically inside each CPU core. They hold the exact values the CPU is working on this instant (like R1, R2, and the Program Counter)."},
+  {id:"l1",name:"L1 cache",cap:"~64 KB / core",lat:"~1 ns",cyc:"~4 cycles",w:16,color:"#22d3ee",
+   body:"Per-core, split into instruction and data caches. The CPU checks here first. A 'cache hit' here is almost free; everything below is a fallback."},
+  {id:"l2",name:"L2 cache",cap:"~512 KB / core",lat:"~4 ns",cyc:"~12 cycles",w:26,color:"#38bdf8",
+   body:"Bigger and a little slower than L1, still private to each core. Catches what L1 missed before the request has to travel further out."},
+  {id:"l3",name:"L3 cache",cap:"~8–32 MB",lat:"~12 ns",cyc:"~40 cycles",w:42,color:"#a78bfa",
+   body:"Large and shared by all cores. The last line of fast on-chip memory before a request has to leave the CPU entirely and cross to main memory."},
+  {id:"ram",name:"RAM (DRAM)",cap:"8–32 GB",lat:"~100 ns",cyc:"~300 cycles",w:66,color:"#94a3b8",
+   body:"Main memory — where running programs and their data live. Off-chip, so reaching it is ~100× slower than L1. Fast by human standards, glacial to a CPU. Wiped on power-off."},
+  {id:"ssd",name:"SSD (NVMe)",cap:"256 GB – 4 TB",lat:"~100 µs",cyc:"~300,000 cycles",w:88,color:"#64748b",
+   body:"Permanent flash storage. Thousands of times slower than RAM, but it keeps your files and programs when the power is off. Programs are copied from here into RAM to run."},
+  {id:"hdd",name:"HDD (spinning disk)",cap:"1 – 20 TB",lat:"~10 ms",cyc:"~30,000,000 cycles",w:100,color:"#475569",
+   body:"A physical spinning platter with a moving head. Cheap and huge, but the slowest by far — the head has to physically seek. Still common for bulk storage."},
+];
+(function(){
+  const host=$("#strata"),det=$("#hierDetail");
+  LAYERS.forEach(L=>{
+    const row=document.createElement("div");row.className="stratum";row.dataset.id=L.id;
+    row.innerHTML=`<div class="bar" style="width:${L.w}%;background:${L.color}">${L.name}</div><div class="meta">${L.cap} · ${L.lat}</div>`;
+    row.addEventListener("click",()=>{
+      $$(".stratum").forEach(x=>x.classList.remove("active"));row.classList.add("active");
+      det.innerHTML=`<div class="dt" style="color:${L.color}">${L.name}</div>
+        <div class="dstats">
+          <div class="dstat"><div class="k">capacity</div><div class="v">${L.cap}</div></div>
+          <div class="dstat"><div class="k">latency</div><div class="v" style="color:var(--cyan)">${L.lat}</div></div>
+          <div class="dstat"><div class="k">≈ CPU cycles</div><div class="v" style="color:var(--amber)">${L.cyc}</div></div>
+        </div><div class="dbody">${L.body}</div>`;
+    });
+    host.appendChild(row);
+  });
+})();
+
+/* ============ §2 latency at human scale ============ */
+const SCALE=[
+  {id:"reg",name:"Register",real:"~0.3 ns",cyc:"1 cycle",human:"1 second",analogy:"A value already in your hand — no travel at all.",log:0},
+  {id:"l1",name:"L1 cache",real:"~1 ns",cyc:"~4 cycles",human:"~3 seconds",analogy:"Reaching for something already on your desk.",log:7},
+  {id:"l2",name:"L2 cache",real:"~4 ns",cyc:"~12 cycles",human:"~13 seconds",analogy:"Standing up to grab a book off the shelf.",log:15},
+  {id:"l3",name:"L3 cache",real:"~12 ns",cyc:"~40 cycles",human:"~40 seconds",analogy:"Walking to the next room to fetch it.",log:21},
+  {id:"ram",name:"RAM",real:"~100 ns",cyc:"~300 cycles",human:"~6 minutes",analogy:"A proper coffee break — long enough to lose focus.",log:33},
+  {id:"ssd",name:"SSD",real:"~100 µs",cyc:"~300k cycles",human:"~4 days",analogy:"Ordering something and waiting for the delivery.",log:73},
+  {id:"hdd",name:"HDD",real:"~10 ms",cyc:"~30M cycles",human:"over a year",analogy:"A whole season — no, a whole year — passes by.",log:100},
+];
+(function(){
+  const sel=$("#lsel");
+  SCALE.forEach((s,i)=>{const b=document.createElement("button");b.textContent=s.name;if(i===4)b.classList.add("on");
+    b.addEventListener("click",()=>{$$("#lsel button").forEach(x=>x.classList.remove("on"));b.classList.add("on");show(s);});
+    sel.appendChild(b);});
+  function show(s){
+    $("#svReal").textContent=s.real;$("#svCyc").textContent=s.cyc;
+    $("#svHuman").textContent=s.human;$("#svAnalogy").textContent=s.analogy;
+    $("#logFill").style.width=Math.max(3,s.log)+"%";
+    $("#logFill").style.background=s.log>60?"var(--red)":s.log>28?"var(--amber)":"linear-gradient(90deg,var(--cyan),var(--violet))";
+  }
+  show(SCALE[4]); // start on RAM — the most instructive gap
+})();
+
+/* ============ §3 journey of a byte ============ */
+const STOPS=[
+  {n:"Disk",t:"start",cum:0,msg:"The byte sleeps on disk — permanent, but far, far away from the CPU."},
+  {n:"RAM",t:"+~10 ms",cum:10000000,msg:"The long climb off the disk. This ONE hop is ~10 ms — almost the entire journey."},
+  {n:"L3",t:"+~12 ns",cum:10000012,msg:"Now on-chip, in shared L3 cache. From here up, everything is a rounding error."},
+  {n:"L2",t:"+~4 ns",cum:10000016,msg:"Into the core's private L2."},
+  {n:"L1",t:"+~1 ns",cum:10000017,msg:"Into L1, right beside the core."},
+  {n:"Register",t:"+~0.3 ns",cum:10000017.3,msg:"Loaded into a register — the CPU can finally use it."},
+];
+function fmtNs(ns){if(ns<1000)return ns.toFixed(0)+" ns";if(ns<1e6)return (ns/1e3).toFixed(1)+" µs";return (ns/1e6).toFixed(2)+" ms";}
+(function(){
+  const stopsEl=$("#stops"),fill=$("#railFill"),clock=$("#jClock"),msg=$("#jMsg");
+  STOPS.forEach((s,i)=>{const d=document.createElement("div");d.className="stop";d.id="stop"+i;
+    d.innerHTML=`<div class="dotnode"></div><div class="sn">${s.n}</div><div class="st">${s.t}</div>`;stopsEl.appendChild(d);});
+  let idx=-1,timer=null;
+  function reset(){idx=-1;if(timer)clearInterval(timer);timer=null;$$(".stop").forEach(s=>s.classList.remove("hit"));fill.style.width="0%";clock.textContent="0 ns";msg.textContent="Press play to send the byte on its way.";$("#jPlay").textContent="▶ send the byte";}
+  function step(){
+    idx++;
+    if(idx>=STOPS.length){clearInterval(timer);timer=null;$("#jPlay").textContent="▶ replay";
+      msg.innerHTML="<b style='color:var(--amber)'>Notice:</b> ~99.9% of the whole trip was the single hop off the disk. That gulf is why caches — and RAM — exist.";return;}
+    const s=STOPS[idx];
+    $("#stop"+idx).classList.add("hit");
+    fill.style.width=(6+ (idx/(STOPS.length-1))*88)+"%";
+    clock.textContent=fmtNs(s.cum);
+    msg.textContent=s.msg;
+  }
+  $("#jPlay").addEventListener("click",()=>{if(timer)return;if(idx>=STOPS.length-1||idx===-1)reset();$("#jPlay").textContent="running…";timer=setInterval(step,950);step();});
+  $("#jReset").addEventListener("click",reset);
+  reset();
+})();
+
+/* ============ §4 datapath ============ */
+(function(){
+  const PROG=[
+    {a:"0x00",t:"LOAD  R1, 5",mc:"11 05",act:s=>s.R1=5,touch:"R1"},
+    {a:"0x01",t:"LOAD  R2, 3",mc:"12 03",act:s=>s.R2=3,touch:"R2"},
+    {a:"0x02",t:"ADD   R1, R2",mc:"21 12",act:s=>s.R1=s.R1+s.R2,touch:"R1",alu:true},
+    {a:"0x03",t:"STORE R1 → OUT",mc:"31 01",act:s=>s.out=s.R1,touch:"OUT"},
+    {a:"0x04",t:"JMP   0x00",mc:"F0 00",act:s=>{s.R1=0;s.R2=0;s.out=null;},touch:null},
+  ];
+  const list=$("#instrList");
+  PROG.forEach((p,i)=>{const d=document.createElement("div");d.className="instr";d.id="i"+i;
+    d.innerHTML=`<span class="pc">▸</span><span class="addr">${p.a}</span><span>${p.t}</span><span class="bits">${p.mc}</span>`;list.appendChild(d);});
+  const phEls=[$("#phFetch"),$("#phDecode"),$("#phExecute")],pcB=$("#pcBadge"),alu=$("#aluBox");
+  const cells={R1:$("#rcR1"),R2:$("#rcR2"),OUT:$("#rcOut")};
+  let pc=0,phase=-1,timer=null,st={R1:0,R2:0,out:null};
+  function paintRegs(touch){
+    cells.R1.querySelector(".rv").textContent=st.R1;
+    cells.R2.querySelector(".rv").textContent=st.R2;
+    cells.OUT.querySelector(".rv").textContent=(st.out==null?"–":st.out);
+    Object.values(cells).forEach(c=>c.classList.remove("upd"));
+    if(touch&&cells[touch])cells[touch].classList.add("upd");
+  }
+  function render(){
+    $$(".instr").forEach((e,i)=>e.classList.toggle("active",i===pc&&phase>=0));
+    phEls.forEach((e,i)=>e.classList.toggle("lit",i===phase));
+    pcB.textContent="PC → "+PROG[pc].a;
+    if(phase===2&&PROG[pc].alu){alu.classList.add("fire");alu.textContent="ALU · "+st.R1+" + "+st.R2+" ...";}
+    else if(phase<0){alu.classList.remove("fire");alu.textContent="ALU · idle";}
+  }
+  function tick(){
+    phase++;
+    if(phase>2){const p=PROG[pc];p.act(st);paintRegs(p.touch);alu.classList.remove("fire");if(!PROG[pc].alu)alu.textContent="ALU · idle";phase=0;pc=(pc+1)%PROG.length;}
+    render();
+  }
+  const play=$("#cpuPlay");
+  function stop(){if(timer){clearInterval(timer);timer=null;play.textContent="▶ run";}}
+  $("#cpuStep").addEventListener("click",()=>{stop();tick();});
+  $("#cpuReset").addEventListener("click",()=>{stop();pc=0;phase=-1;st={R1:0,R2:0,out:null};paintRegs(null);alu.classList.remove("fire");alu.textContent="ALU · idle";render();});
+  play.addEventListener("click",()=>{if(timer){stop();return;}tick();timer=setInterval(tick,780);play.textContent="⏸ pause";});
+  paintRegs(null);render();
+})();
+
+/* ============ §5a 32 vs 64 ============ */
+(function(){
+  const b32=$("#b32"),b64=$("#b64"),num=$("#capNum"),sub=$("#capSub"),fill=$("#vialFill");
+  function set(is64){
+    b64.classList.toggle("on",is64);b32.classList.toggle("on",!is64);
+    num.textContent=is64?"~16 exabytes":"~4 GB";num.style.color=is64?"var(--cyan)":"var(--amber)";
+    sub.textContent=is64?"addressable memory — effectively limitless for now":"the hard 4 GB ceiling — install 16 GB and it still can't see past this";
+    fill.style.width=is64?"100%":"3%";fill.style.background=is64?"linear-gradient(90deg,var(--cyan),var(--violet))":"var(--amber)";
+  }
+  b32.addEventListener("click",()=>set(false));b64.addEventListener("click",()=>set(true));set(true);
+})();
+
+/* ============ §5b endianness ============ */
+(function(){
+  const bytes=["12","34","56","78"],cls=["b0","b1","b2","b3"];
+  const row=$("#endRow"),note=$("#endNote"),big=$("#eBig"),lit=$("#eLittle");
+  function render(isLittle){
+    const order=isLittle?[3,2,1,0]:[0,1,2,3];row.innerHTML="";
+    order.forEach(idx=>{const d=document.createElement("div");d.className="ebyte "+cls[idx];d.textContent=bytes[idx];row.appendChild(d);});
+    note.innerHTML=isLittle?"in memory: <b style='color:var(--green)'>78 56 34 12</b> — small end first, looks reversed (Intel/AMD do this)":"in memory: <b style='color:var(--cyan)'>12 34 56 78</b> — the way we write it (network byte order)";
+    lit.classList.toggle("on",isLittle);big.classList.toggle("on",!isLittle);
+  }
+  big.addEventListener("click",()=>render(false));lit.addEventListener("click",()=>render(true));render(true);
+})();
+</script>
+</body>
+</html>
