@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Data Representation — how computers dress up numbers</title>
+<meta name="description" content="An interactive, research-grade beginner's guide to data representation: number bases, bits vs bytes, ASCII, Unicode/UTF-8, Base64 and URL encoding — with a live homograph-attack demo. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171;
+    --gc:0 0 14px rgba(34,211,238,.55); --ga:0 0 14px rgba(251,191,36,.55); --gv:0 0 14px rgba(167,139,250,.55); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(167,139,250,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.25),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--violet);box-shadow:var(--gv);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--violet);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(32px,7vw,68px);line-height:1.02;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--violet),var(--cyan) 60%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:var(--gg);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--violet);color:var(--text);transform:translateY(-2px);box-shadow:var(--gv)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--violet)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--violet)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--cyan),var(--violet));color:var(--ink);border-color:transparent;font-weight:700}
+  .center{text-align:center}
+  .rowlbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  input.txt{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:var(--text)}
+  input.txt:focus{outline:none;border-color:var(--cyan);box-shadow:var(--gc)}
+  /* §1 base converter */
+  .conv{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:600px){.conv{grid-template-columns:1fr}}
+  .convcell{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:16px}
+  .convcell .cl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between}
+  .convcell .base{color:var(--cyan)}
+  .convcell input{width:100%;margin-top:10px;font-size:22px;font-weight:700;letter-spacing:1px}
+  .convcell.bin input{color:var(--cyan)} .convcell.dec input{color:var(--amber)} .convcell.hex input{color:var(--violet)}
+  .breakdown{margin-top:22px;background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:18px;font-family:var(--mono);font-size:14px;overflow-x:auto}
+  .breakdown .bl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+  .cols{display:flex;gap:6px;flex-wrap:wrap}
+  .col{text-align:center;border:1px solid var(--line);border-radius:8px;padding:8px 6px;min-width:54px;background:var(--ink)}
+  .col .pw{font-size:10px;color:var(--dim)}
+  .col .dg{font-size:20px;font-weight:700;margin:4px 0}
+  .col .val{font-size:10px;color:var(--muted)}
+  .col.hot .dg{color:var(--cyan)} .col.on{border-color:var(--cyan);box-shadow:var(--gc)}
+  .sumline{margin-top:14px;color:var(--muted);font-size:13.5px}
+  .sumline b{color:var(--amber)}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:20px}
+
+  /* §2 units ladder */
+  .ladder{display:flex;flex-direction:column;gap:8px}
+  .rung{display:grid;grid-template-columns:130px 1fr;gap:14px;align-items:center}
+  .rung .lbar{height:44px;border-radius:9px;display:flex;align-items:center;padding:0 14px;font-family:var(--mono);font-weight:700;font-size:13px;color:var(--ink)}
+  .rung .lex{font-size:13px;color:var(--muted)}
+  .rung .un{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .bwbox{margin-top:24px;background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:18px}
+  .bwbox .bl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .bwrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:var(--mono)}
+  .bwrow input{width:110px;font-size:18px;font-weight:700;color:var(--cyan)}
+  .bweq{font-size:15px;color:var(--muted)}
+  .bweq b{color:var(--amber)}
+
+  /* §3 unicode explorer */
+  .uni-in{width:100%;font-size:26px;text-align:center;letter-spacing:1px}
+  .uni-stat{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+  .uni-stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .uni-stat .v{font-family:var(--mono);font-size:22px;font-weight:700}
+  .chargrid{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .charcell{border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;background:var(--panel-2);min-width:92px}
+  .charcell .glyph{font-size:30px;line-height:1.1}
+  .charcell .cp{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:6px}
+  .charcell .ub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;word-break:break-all}
+  .charcell .bc{font-family:var(--mono);font-size:10px;margin-top:5px;padding:2px 6px;border-radius:5px;display:inline-block}
+  .bc1{background:rgba(52,211,153,.15);color:var(--green)} .bc2{background:rgba(34,211,238,.15);color:var(--cyan)}
+  .bc3{background:rgba(167,139,250,.15);color:var(--violet)} .bc4{background:rgba(251,113,133,.15);color:var(--pink)}
+  .uni-quick{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+
+  /* §4 base64 */
+  .b64grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:600px){.b64grid{grid-template-columns:1fr}}
+  .b64box{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:16px}
+  .b64box .bl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+  .b64box textarea,.b64box input{width:100%;font-family:var(--mono);background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:11px;color:var(--text);font-size:15px;resize:vertical}
+  .b64box .out{color:var(--violet);word-break:break-all;min-height:44px}
+  .b64tells{margin-top:16px;font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.9}
+  .b64tells .t{color:var(--cyan)}
+
+  /* §5 url encoding */
+  .urlwrap textarea{width:100%;font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:12px;color:var(--text);font-size:15px;resize:vertical}
+  .urlout{margin-top:14px;font-family:var(--mono);font-size:15px;background:var(--ink);border:1px solid var(--line);border-radius:11px;padding:14px;word-break:break-all;min-height:50px}
+  .urlout .enc{color:var(--pink);font-weight:700}
+  .urltable{margin-top:16px;font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.9}
+  .urltable .c{color:var(--pink)}
+
+  /* §6 homograph */
+  .homo{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:600px){.homo{grid-template-columns:1fr}}
+  .homocard{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center;transition:.25s}
+  .homocard .dom{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.5px}
+  .homocard .verdict{font-family:var(--mono);font-size:12px;margin-top:14px;min-height:20px}
+  .homocard.real{border-color:var(--green)} .homocard.real .verdict{color:var(--green)}
+  .homocard.fake.revealed{border-color:var(--red);box-shadow:var(--gr)} .homocard.fake.revealed .verdict{color:var(--red)}
+  .homo-detail{margin-top:18px;font-family:var(--mono);font-size:13px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:60px;line-height:1.7}
+  .homo-detail b{color:var(--pink)}
+
+  .divider{height:1px;background:var(--line);margin:30px 0}
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:20%;left:0;right:0"></div>
+  <div class="trace" style="top:47%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:74%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · data representation</div>
+    <h1>Numbers<br/>in <span class="em">costume</span></h1>
+    <p>Everything in a computer — every letter, emoji, and image — is really just numbers. "Data representation" is the study of the costumes those numbers wear. Learn to see through every one.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · start from zero · every panel is live</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">Bases: binary, decimal, hex</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Bits vs bytes &amp; units</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">ASCII, Unicode &amp; UTF-8</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">Base64 encoding</div></a>
+      <a class="tcard" href="#s5"><div class="tn">05</div><div class="tt">URL encoding + an attack</div></a>
+    </nav>
+    <div class="cue">decode ↓</div>
+  </header>
+
+  <!-- §1 bases -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> counting systems</div>
+    <h2>The same number, three costumes</h2>
+    <p class="lead">A "base" is just <b>how many digits you count with before rolling over</b>. We use <b>base 10</b> (0–9) because we have ten fingers. Computers use <b>base 2</b> (0–1) because a wire is either on or off. And <b>base 16</b> (0–9, then A–F) is a shorthand humans use for binary. Type a number in any box — the others follow instantly, and the breakdown shows <em>why</em>.</p>
+    <div class="stage">
+      <div class="conv">
+        <div class="convcell bin"><div class="cl">binary <span class="base">base 2</span></div><input class="txt" id="cBin" value="01000001" /></div>
+        <div class="convcell dec"><div class="cl">decimal <span class="base">base 10</span></div><input class="txt" id="cDec" value="65" /></div>
+        <div class="convcell hex"><div class="cl">hex <span class="base">base 16</span></div><input class="txt" id="cHex" value="41" /></div>
+      </div>
+      <div class="breakdown">
+        <div class="bl">how binary builds that number (each column is double the last)</div>
+        <div class="cols" id="binCols"></div>
+        <div class="sumline" id="binSum"></div>
+        <div class="sumline" id="hexSum" style="margin-top:10px"></div>
+      </div>
+      <div class="presets">
+        <button class="btn" data-n="65">65 = "A"</button>
+        <button class="btn" data-n="255">255 = max byte</button>
+        <button class="btn" data-n="16">16</button>
+        <button class="btn" data-n="3405691582">a big one</button>
+      </div>
+    </div>
+    <div class="why red"><b>offensive angle</b>Attackers abuse base-switching to dodge filters: the IP <b>127.0.0.1</b> can be written as <b>0x7f000001</b> (hex) or <b>2130706433</b> (decimal) — same address, unrecognisable to a naive blocklist. Seeing through bases is how you catch obfuscated IPs and URLs.</div>
+    <p class="note">// verify anywhere:  Python → bin(65), hex(65), int("41",16)  ·  Linux → echo $((16#41))  ·  or CyberChef</p>
+  </section>
+
+  <!-- §2 units -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> units of data</div>
+    <h2>Bits, bytes, and the trap in between</h2>
+    <p class="lead">A <b>bit</b> is one 0-or-1. Eight bits make a <b>byte</b> — roughly one letter. From there the units climb ×1000 each step. The famous gotcha: internet speed is measured in <b>bits</b> (Mbps) but files in <b>bytes</b> (MB) — an 8× difference that confuses everyone.</p>
+    <div class="stage">
+      <div class="ladder" id="ladder"></div>
+      <div class="bwbox">
+        <div class="bl">the bits-vs-bytes trap — try it</div>
+        <div class="bwrow">
+          <input class="txt" id="mbps" value="100" /> <span class="bweq">Mbps (megabits/sec) ÷ 8 =</span> <span class="bweq"><b id="mbs">12.5</b> MB/s (megabytes/sec)</span>
+        </div>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>Data exfiltration is measured in bytes — spotting an unusual <em>volume</em> of outbound data is a classic detection. And confusing bits with bytes (the lowercase b vs uppercase B) causes real misreads of network graphs and tool output.</div>
+    <p class="note">// note: storage vendors use 1000 (GB), but your OS often counts in 1024 (GiB) — which is why a "1 TB" drive shows as ~931 GB. Same bytes, different rounding.</p>
+  </section>
+
+  <!-- §3 unicode -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> text as numbers</div>
+    <h2>ASCII → Unicode → UTF-8</h2>
+    <p class="lead"><b>ASCII</b> gave the first 128 characters a number (A = 65) — but only English. <b>Unicode</b> fixed that: one giant table assigning every character in every language (and every emoji) a number called a <b>code point</b> (written U+XXXX). <b>UTF-8</b> is how those code points get stored as bytes — English stays 1 byte, but other scripts and emoji take 2, 3, or 4. Type anything below — your name, Urdu, an emoji — and watch it become bytes.</p>
+    <div class="stage">
+      <input class="txt uni-in" id="uniIn" value="Af😀" />
+      <div class="uni-stat">
+        <div><div class="k">characters</div><div class="v" style="color:var(--cyan)" id="uniChars">0</div></div>
+        <div><div class="k">bytes (UTF-8)</div><div class="v" style="color:var(--amber)" id="uniBytes">0</div></div>
+      </div>
+      <div class="chargrid" id="uniGrid"></div>
+      <div class="uni-quick">
+        <button class="btn" data-t="Faiza">Faiza</button>
+        <button class="btn" data-t="فائزہ">فائزہ (Urdu)</button>
+        <button class="btn" data-t="€">€ symbol</button>
+        <button class="btn" data-t="🔐🌍">🔐🌍 emoji</button>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>Because different characters can <em>look</em> identical but have different code points, attackers register lookalike domains (see §05). Analysts must <b>normalise</b> text to one form before comparing it — otherwise a check for "admin" can be bypassed with a lookalike character. The 1-byte backward compatibility of UTF-8 with ASCII is also why old tools still mostly work.</div>
+    <p class="note">// verify:  Python → "😀".encode("utf-8")  gives  b'\xf0\x9f\x98\x80'  (4 bytes)  ·  ord("A") → 65</p>
+  </section>
+
+  <!-- §4 base64 -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> binary-safe text</div>
+    <h2>Base64: dressing bytes as plain text</h2>
+    <p class="lead">Some channels — email bodies, URLs, JSON — only cope with plain text. <b>Base64</b> repackages <em>any</em> bytes into a safe alphabet (A–Z, a–z, 0–9, + /) by taking 3 bytes at a time and re-slicing them into 4 six-bit chunks. It's everywhere. Encode and decode live below.</p>
+    <div class="stage">
+      <div class="b64grid">
+        <div class="b64box"><div class="bl">plain text</div><textarea id="b64plain" rows="3">Attack at dawn</textarea></div>
+        <div class="b64box"><div class="bl">→ base64</div><div class="out" id="b64enc"></div></div>
+      </div>
+      <div class="b64tells">
+        <div>how to recognise Base64 on sight:</div>
+        <div><span class="t">›</span> only A–Z a–z 0–9 + / &nbsp; <span class="t">›</span> length is a multiple of 4 &nbsp; <span class="t">›</span> often ends in <b>=</b> or <b>==</b> &nbsp; <span class="t">›</span> ~33% longer than the original</div>
+      </div>
+    </div>
+    <div class="why red"><b>offensive angle</b>Attackers Base64-encode commands to slip past text filters — the infamous <b>powershell -enc &lt;base64&gt;</b> hides the real command from a casual glance. But it's <b>not encryption</b> — it reverses instantly, so a defender who spots a Base64 blob in a log just decodes it to reveal exactly what was attempted.</div>
+    <p class="note">// verify:  echo -n "Man" | base64 → TWFu  ·  echo -n "TWFu" | base64 -d → Man</p>
+  </section>
+
+  <!-- §5 url encoding + homograph -->
+  <section id="s5">
+    <div class="eyebrow"><span class="no">05</span> the web's costume — and an attack</div>
+    <h2>URL encoding, and lookalike domains</h2>
+    <p class="lead">URLs can't contain spaces or many symbols, so they get <b>percent-encoded</b>: each forbidden byte becomes <b>%</b> followed by its hex value (space → %20). Type below and watch it happen — the changed parts glow.</p>
+    <div class="stage">
+      <div class="urlwrap">
+        <textarea id="urlIn" rows="2">search: name & <tag> 100%</textarea>
+        <div class="urlout" id="urlOut"></div>
+      </div>
+      <div class="urltable">
+        <div>attack characters analysts watch for, url-encoded:</div>
+        <div><span class="c">%27</span> = <b>'</b> (SQL injection) &nbsp; <span class="c">%3C</span> = <b>&lt;</b> (XSS) &nbsp; <span class="c">%2F</span> = <b>/</b> &nbsp; <span class="c">%00</span> = null byte</div>
+        <div style="margin-top:8px">and the bypass trick — <b>double encoding</b>: <span class="c">&lt;</span> → <span class="c">%3C</span> → <span class="c">%253C</span> (a filter blocking "%3C" misses "%253C", which the server may decode back to "&lt;").</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <p class="lead" style="margin-top:0">Now the payoff — where representation becomes a real attack. These two domains look identical. One is <b>real</b>; one uses a Cyrillic letter that <em>looks</em> like a Latin one. Click "inspect" to unmask the fake.</p>
+    <div class="stage">
+      <div class="homo">
+        <div class="homocard real" id="homoReal"><div class="dom">apple.com</div><div class="verdict">click inspect below</div></div>
+        <div class="homocard fake" id="homoFake"><div class="dom">аpple.com</div><div class="verdict">click inspect below</div></div>
+      </div>
+      <div class="center" style="margin-top:18px"><button class="btn solid" id="homoBtn">🔍 inspect both domains</button></div>
+      <div class="homo-detail" id="homoDetail">A "homograph attack" hides a lookalike character in a familiar name. To your eye they match. To the computer — which sees code points, not shapes — they're completely different addresses.</div>
+    </div>
+    <div class="why red"><b>offensive &amp; defensive</b>Offense: register a lookalike domain to phish credentials — the victim reads "apple.com" and trusts it. Defense: browsers convert such domains to <b>punycode</b> (that <b>xn--</b> prefix) to expose them, and analysts normalise and compare code points, never shapes. This is data representation as a live attack surface.</div>
+    <p class="note">// verify:  Python → "а".encode("utf-8") (Cyrillic) vs "a".encode("utf-8") (Latin) — different bytes, identical look.</p>
+  </section>
+
+  <footer>
+    <div class="fmono">module 01 · data representation — every costume, unmasked.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 base converter ===== */
+(function(){
+  const cBin=$("#cBin"),cDec=$("#cDec"),cHex=$("#cHex"),cols=$("#binCols"),binSum=$("#binSum"),hexSum=$("#hexSum");
+  const MAX=4294967295;
+  function setVal(v){
+    if(isNaN(v)||v<0)v=0; if(v>MAX)v=MAX; v=Math.floor(v);
+    cBin.value=v.toString(2); cDec.value=v; cHex.value=v.toString(16).toUpperCase();
+    // binary columns
+    const bstr=v.toString(2);
+    cols.innerHTML="";
+    [...bstr].forEach((bit,i)=>{
+      const power=bstr.length-1-i, val=Math.pow(2,power);
+      const c=document.createElement("div");c.className="col hot"+(bit==="1"?" on":"");
+      c.innerHTML=`<div class="pw">2^${power}</div><div class="dg">${bit}</div><div class="val">${val>=1000?val.toLocaleString():val}</div>`;
+      cols.appendChild(c);
+    });
+    const onvals=[...bstr].map((b,i)=>b==="1"?Math.pow(2,bstr.length-1-i):0).filter(x=>x);
+    binSum.innerHTML= onvals.length? `add the lit columns: ${onvals.join(" + ")} = <b>${v}</b>` : `all columns off = <b>0</b>`;
+    // hex expansion
+    const hstr=v.toString(16).toUpperCase();
+    const parts=[...hstr].map((d,i)=>{const p=hstr.length-1-i;const dv=parseInt(d,16);return `${dv}${p>0?"\u00d716"+(p>1?"^"+p:""):""}`;});
+    hexSum.innerHTML=`hex ${hstr}: ${parts.join(" + ")} = <b>${v}</b>`;
+  }
+  cDec.addEventListener("input",()=>setVal(parseInt(cDec.value,10)));
+  cBin.addEventListener("input",()=>{const t=cBin.value.replace(/[^01]/g,"");setVal(t?parseInt(t,2):0);});
+  cHex.addEventListener("input",()=>{const t=cHex.value.replace(/^0x/i,"").replace(/[^0-9a-fA-F]/g,"");setVal(t?parseInt(t,16):0);});
+  $$("#s1 [data-n]").forEach(b=>b.addEventListener("click",()=>setVal(+b.dataset.n)));
+  setVal(65);
+})();
+
+/* ===== §2 units ===== */
+(function(){
+  const UNITS=[
+    {n:"1 bit",u:"a single 0 or 1",w:6,c:"#34d399",ex:"on / off · yes / no"},
+    {n:"1 byte",u:"8 bits",w:14,c:"#22d3ee",ex:"one character, like \"A\""},
+    {n:"1 KB",u:"~1,000 bytes",w:30,c:"#38bdf8",ex:"a short paragraph of text"},
+    {n:"1 MB",u:"~1,000 KB",w:52,c:"#a78bfa",ex:"a high-quality photo"},
+    {n:"1 GB",u:"~1,000 MB",w:76,c:"#94a3b8",ex:"about 30 minutes of HD video"},
+    {n:"1 TB",u:"~1,000 GB",w:100,c:"#64748b",ex:"a large hard drive"},
+  ];
+  const l=$("#ladder");
+  UNITS.forEach(U=>{const r=document.createElement("div");r.className="rung";
+    r.innerHTML=`<div class="un">${U.n}<br/><span style="color:var(--dim);font-size:11px">${U.u}</span></div><div><div class="lbar" style="width:${U.w}%;background:${U.c}">${U.n}</div><div class="lex">${U.ex}</div></div>`;
+    l.appendChild(r);});
+  const mbps=$("#mbps"),mbs=$("#mbs");
+  const calc=()=>{const v=parseFloat(mbps.value);mbs.textContent=isNaN(v)?"—":(v/8).toLocaleString(undefined,{maximumFractionDigits:2});};
+  mbps.addEventListener("input",calc);calc();
+})();
+
+/* ===== §3 unicode / utf-8 ===== */
+(function(){
+  const inp=$("#uniIn"),grid=$("#uniGrid"),charsEl=$("#uniChars"),bytesEl=$("#uniBytes");
+  const enc=new TextEncoder();
+  function render(){
+    const str=inp.value;
+    const chars=[...str];
+    charsEl.textContent=chars.length;
+    bytesEl.textContent=enc.encode(str).length;
+    grid.innerHTML="";
+    chars.slice(0,24).forEach(ch=>{
+      const cp=ch.codePointAt(0);
+      const cpHex="U+"+cp.toString(16).toUpperCase().padStart(4,"0");
+      const bytes=[...enc.encode(ch)];
+      const bc=bytes.length;
+      const c=document.createElement("div");c.className="charcell";
+      c.innerHTML=`<div class="glyph">${ch===" "?"␣":ch}</div><div class="cp">${cpHex}</div>
+        <div class="ub">${bytes.map(b=>b.toString(16).toUpperCase().padStart(2,"0")).join(" ")}</div>
+        <div class="bc bc${bc}">${bc} byte${bc>1?"s":""}</div>`;
+      grid.appendChild(c);
+    });
+  }
+  inp.addEventListener("input",render);
+  $$("#s3 [data-t]").forEach(b=>b.addEventListener("click",()=>{inp.value=b.dataset.t;render();}));
+  render();
+})();
+
+/* ===== §4 base64 ===== */
+(function(){
+  const plain=$("#b64plain"),out=$("#b64enc");
+  const enc=new TextEncoder();
+  function b64(str){
+    try{ return btoa(String.fromCharCode(...enc.encode(str))); }catch(e){ return "(error)"; }
+  }
+  function render(){out.textContent=plain.value?b64(plain.value):"(empty)";}
+  plain.addEventListener("input",render);render();
+})();
+
+/* ===== §5 url encoding ===== */
+(function(){
+  const inp=$("#urlIn"),out=$("#urlOut");
+  function render(){
+    const s=inp.value;
+    out.innerHTML=[...s].map(ch=>{
+      const e=encodeURIComponent(ch);
+      return e!==ch ? `<span class="enc">${e}</span>` : ch.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }).join("");
+  }
+  inp.addEventListener("input",render);render();
+})();
+
+/* ===== §5b homograph ===== */
+(function(){
+  const real=$("#homoReal"),fake=$("#homoFake"),btn=$("#homoBtn"),det=$("#homoDetail");
+  // set text from JS so the fake is guaranteed Cyrillic U+0430
+  real.querySelector(".dom").textContent="apple.com";
+  fake.querySelector(".dom").textContent="\u0430pple.com";
+  let shown=false;
+  btn.addEventListener("click",()=>{
+    shown=!shown;
+    if(shown){
+      real.classList.add("revealed");fake.classList.add("revealed");
+      real.querySelector(".verdict").textContent="\u2713 genuine \u2014 'a' is Latin U+0061";
+      fake.querySelector(".verdict").textContent="\u26A0 FAKE \u2014 'a' is Cyrillic U+0430";
+      det.innerHTML="The first letter of the fake is <b>Cyrillic 'а' (U+0430)</b>, not Latin <b>'a' (U+0061)</b>. Identical shape, different number \u2014 so it's a totally different domain. Browsers unmask this by showing it as <b>punycode</b> (an <b>xn--</b> address), and defenders compare <b>code points, never shapes</b>.";
+      btn.textContent="hide";
+    }else{
+      real.classList.remove("revealed");fake.classList.remove("revealed");
+      real.querySelector(".verdict").textContent="click inspect below";
+      fake.querySelector(".verdict").textContent="click inspect below";
+      det.innerHTML="A \"homograph attack\" hides a lookalike character in a familiar name. To your eye they match. To the computer \u2014 which sees code points, not shapes \u2014 they're completely different addresses.";
+      btn.textContent="\uD83D\uDD0D inspect both domains";
+    }
+  });
+})();
+</script>
+</body>
+</html>
