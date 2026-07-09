@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operating System Concepts — the boundaries that keep a computer safe</title>
+<meta name="description" content="Interactive, security-focused explainer of operating system concepts: kernel vs user space, processes and threads, virtual memory and paging, and system calls and drivers. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171;
+    --gc:0 0 14px rgba(34,211,238,.5); --ga:0 0 14px rgba(251,191,36,.5); --gv:0 0 14px rgba(167,139,250,.5); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(52,211,153,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(52,211,153,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.22),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--green);box-shadow:var(--gg);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--green);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,6.5vw,62px);line-height:1.03;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--green),var(--cyan) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:var(--gg);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--green);color:var(--text);transform:translateY(-2px);box-shadow:var(--gg)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--green)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--green)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--green),var(--cyan));color:var(--ink);border-color:transparent;font-weight:700}
+  .btn.danger{border-color:var(--red);color:var(--red)}
+  .btn.danger:hover{background:rgba(248,113,113,.1)}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .center{text-align:center}
+  .rowlbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  /* §1 kernel vs user */
+  .rings{position:relative;border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--panel-2)}
+  .ring-user{border:1px dashed var(--slate);border-radius:14px;padding:16px 16px 20px}
+  .ring-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin-bottom:12px}
+  .apps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .app{font-family:var(--mono);font-size:12px;background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px 12px;text-align:center;min-width:80px}
+  .app.mal{border-color:var(--red);color:var(--red)}
+  .gate{text-align:center;font-family:var(--mono);font-size:11px;color:var(--amber);margin:6px 0}
+  .gate .door{display:inline-block;border:1px solid var(--amber);border-radius:8px;padding:5px 12px}
+  .ring-kernel{border:1px solid var(--green);border-radius:12px;padding:14px;background:rgba(52,211,153,.05);margin-top:6px}
+  .ring-kernel .ring-lbl{color:var(--green)}
+  .hw{display:flex;gap:10px;flex-wrap:wrap}
+  .hwitem{font-family:var(--mono);font-size:11.5px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--muted)}
+  .rk{font-family:var(--mono);font-size:12px;background:rgba(248,113,113,.12);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:8px 11px;margin-top:10px;display:none}
+  .rk.show{display:block}
+  .msg{margin-top:16px;min-height:44px;font-size:14px;color:var(--muted);background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .oslist{margin-top:14px;font-family:var(--mono);font-size:12.5px}
+  .oslist .ol{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+  .proc{padding:5px 0;border-bottom:1px solid var(--line);color:var(--muted);transition:.3s}
+  .proc.hidden{opacity:.12;text-decoration:line-through}
+  .pulsecross{animation:cross .8s ease}
+  @keyframes cross{0%{background:rgba(34,211,238,0)}40%{background:rgba(34,211,238,.18)}100%{background:transparent}}
+
+  /* §2 processes & threads */
+  .pt{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:640px){.pt{grid-template-columns:1fr}}
+  .procbox{border:1px solid var(--cyan);border-radius:14px;padding:14px;background:rgba(34,211,238,.04)}
+  .procbox .pb-l{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+  .sharedmem{font-family:var(--mono);font-size:11px;color:var(--amber);background:rgba(251,191,36,.08);border:1px dashed var(--amber);border-radius:8px;padding:7px 10px;margin-bottom:12px;text-align:center}
+  .thread{font-family:var(--mono);font-size:12.5px;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;transition:.3s}
+  .thread .tl{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex:0 0 8px;animation:tblink 1.4s infinite}
+  .thread.mal{border-color:var(--red);color:var(--red)}.thread.mal .tl{background:var(--red)}
+  @keyframes tblink{0%,100%{opacity:1}50%{opacity:.3}}
+  .states{display:flex;flex-direction:column;gap:8px}
+  .state{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--muted);transition:.3s;display:flex;justify-content:space-between;align-items:center}
+  .state.on{border-color:var(--green);background:rgba(52,211,153,.08);color:var(--text)}
+  .state.on .badge{color:var(--green)}
+  .state .badge{font-size:10px;color:var(--dim)}
+
+  /* §3 virtual memory */
+  .vm{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:start}
+  @media(max-width:640px){.vm{grid-template-columns:1fr;gap:20px}}
+  .vmcol{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:14px}
+  .vmcol .vl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+  .page{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;transition:.25s;display:flex;justify-content:space-between}
+  .page:hover{border-color:var(--violet)}
+  .page.sel{border-color:var(--violet);box-shadow:var(--gv);color:var(--text)}
+  .page .tag{font-size:10px;color:var(--dim)}
+  .page.ondisk .tag{color:var(--amber)}
+  .frame{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:7px;color:var(--muted);transition:.3s}
+  .frame.lit{border-color:var(--cyan);box-shadow:var(--gc);color:var(--text)}
+  .vmmid{align-self:center;text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .vmmsg{margin-top:16px;min-height:40px;font-size:14px;color:var(--muted);background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+
+  /* §4 syscall stack */
+  .stack{display:flex;flex-direction:column;gap:0;align-items:center}
+  .layer{width:100%;max-width:460px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--panel-2);text-align:center;transition:.3s;position:relative}
+  .layer .ln{font-family:var(--mono);font-weight:700;font-size:14px}
+  .layer .ld{font-size:12px;color:var(--muted);margin-top:3px}
+  .layer.lit{border-color:var(--cyan);box-shadow:var(--gc);background:rgba(34,211,238,.06)}
+  .layer.driver.lit{border-color:var(--amber);box-shadow:var(--ga);background:rgba(251,191,36,.06)}
+  .pipe{width:3px;height:22px;background:var(--line)}
+  .pipe.lit{background:var(--cyan)}
+  .layer .side{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:22%;left:0;right:0"></div>
+  <div class="trace" style="top:52%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:78%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · operating system concepts</div>
+    <h1>The <span class="em">boundaries</span><br/>that keep a computer safe</h1>
+    <p>An operating system's real job is drawing lines — between programs and hardware, between one app and another, between trusted and untrusted code. Almost all of system security is about defending those lines. Let's see them.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · every panel is live</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">Kernel vs User Space</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Processes &amp; Threads</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Virtual Memory &amp; Paging</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">System Calls &amp; Drivers</div></a>
+    </nav>
+    <div class="cue">enter ↓</div>
+  </header>
+
+  <!-- §1 kernel vs user -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> the great divide</div>
+    <h2>Kernel vs User Space</h2>
+    <p class="lead">The CPU can run code at different privilege levels. The OS uses two: <b>kernel mode</b> (ring 0) can touch any hardware and any memory; <b>user mode</b> (ring 3) is fenced in — your apps live here and can't touch hardware directly. To do anything privileged, a program must ask the kernel through a guarded doorway. That fence is <b>the most important security boundary on the machine.</b></p>
+    <div class="stage">
+      <div class="rings">
+        <div class="ring-user">
+          <div class="ring-lbl">User space · ring 3 · your programs</div>
+          <div class="apps"><div class="app">Browser</div><div class="app">Editor</div><div class="app" id="malApp" style="display:none">malware</div></div>
+          <div class="gate"><span class="door" id="gateDoor">🚪 system call gate</span></div>
+        </div>
+        <div class="ring-kernel">
+          <div class="ring-lbl">Kernel · ring 0 · full hardware control</div>
+          <div class="hw"><div class="hwitem">Disk</div><div class="hwitem">Network</div><div class="hwitem">Memory</div><div class="hwitem">All other programs</div></div>
+          <div class="rk" id="rkBox">🐛 rootkit installed in kernel — now hiding "Browser" from the OS's own process list</div>
+        </div>
+      </div>
+      <div class="oslist">
+        <div class="ol">what the OS thinks is running:</div>
+        <div class="proc" id="p1">Browser</div>
+        <div class="proc">Editor</div>
+        <div class="proc">System</div>
+      </div>
+      <div class="msg" id="s1msg">Try the buttons: a normal instruction stays in user space; direct hardware access is blocked; a system call is the only legal way across.</div>
+      <div class="ctrls">
+        <button class="btn" id="btnNormal">run normal instruction</button>
+        <button class="btn" id="btnDirect">access hardware directly</button>
+        <button class="btn solid" id="btnSyscall">make a system call</button>
+        <button class="btn danger" id="btnRootkit">install a rootkit</button>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Attackers arrive in user space and try to climb into the kernel — via a kernel/driver bug — because kernel code sits <em>below</em> the security tools and can hide from them (a rootkit). Defenders use least privilege, patching, driver signing, and <b>EDR</b> (a sensor that watches the boundary from inside the kernel) to spot the crossing.</div>
+    <p class="note">// see what's in your kernel right now:  Linux → lsmod  ·  Windows → driverquery</p>
+  </section>
+
+  <!-- §2 processes & threads -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> what "running" means</div>
+    <h2>Processes &amp; Threads</h2>
+    <p class="lead">A <b>process</b> is a running program with its own private memory. Inside it, <b>threads</b> are separate lines of execution that <em>share</em> that memory — which is how a program does several things at once. The OS constantly moves each process through a lifecycle of <b>states</b> as it shares the CPU.</p>
+    <div class="stage">
+      <div class="pt">
+        <div class="procbox">
+          <div class="pb-l">Process: "myapp" · own private memory</div>
+          <div class="sharedmem">shared memory — all threads below can read it</div>
+          <div id="threads">
+            <div class="thread"><span class="tl"></span>Thread 1 (main)</div>
+          </div>
+        </div>
+        <div>
+          <div class="pb-l" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Process lifecycle</div>
+          <div class="states">
+            <div class="state" id="st0">New <span class="badge">just created</span></div>
+            <div class="state" id="st1">Ready <span class="badge">waiting for CPU</span></div>
+            <div class="state" id="st2">Running <span class="badge">on the CPU now</span></div>
+            <div class="state" id="st3">Waiting <span class="badge">e.g. for disk/network</span></div>
+            <div class="state" id="st4">Terminated <span class="badge">finished</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ctrls">
+        <button class="btn" id="addThread">＋ add a thread</button>
+        <button class="btn solid" id="stepState">step the lifecycle →</button>
+        <button class="btn danger" id="injectThread">inject a malicious thread</button>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Because threads share the process's memory, malware uses <b>process injection</b> — sneaking a malicious thread into a <em>trusted</em> process (like a browser) so its bad activity wears a trusted name. Defenders (via EDR) watch for one process creating a thread inside another, a classic injection tell.</div>
+    <p class="note">// watch real processes &amp; their threads:  Linux → ps -eLf  ·  Windows → Task Manager → Details</p>
+  </section>
+
+  <!-- §3 virtual memory -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> everyone gets their own world</div>
+    <h2>Virtual Memory &amp; Paging</h2>
+    <p class="lead">Every process is given the illusion that it owns all of memory. In reality the OS hands out <b>virtual pages</b> and secretly maps them, through a <b>page table</b>, to real <b>physical frames</b> in RAM — or, if RAM is full, to a slower spot on disk. Click a virtual page to follow the mapping.</p>
+    <div class="stage">
+      <div class="vm">
+        <div class="vmcol">
+          <div class="vl">"myapp" — virtual pages</div>
+          <div id="vpages"></div>
+        </div>
+        <div class="vmmid">page&nbsp;table<br/>↓&nbsp;maps&nbsp;to</div>
+        <div class="vmcol">
+          <div class="vl">physical RAM — frames</div>
+          <div id="vframes"></div>
+        </div>
+      </div>
+      <div class="vmmsg" id="vmmsg">Click a virtual page on the left to see where it really lives in RAM.</div>
+    </div>
+    <div class="why"><b>attack &amp; defense</b>This mapping is what keeps one process from reading another's memory — a core isolation boundary. Exploits try to break it (read/write memory they shouldn't); defenses like <b>ASLR</b> randomise where things land in memory so an attacker can't predict addresses, and the hardware blocks cross-process reads.</div>
+    <p class="note">// a "page fault" is just the CPU saying "that page isn't in RAM yet" — normal, but a flood of them (thrashing) means memory is exhausted.</p>
+  </section>
+
+  <!-- §4 syscalls & drivers -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> asking for power</div>
+    <h2>System Calls &amp; Drivers</h2>
+    <p class="lead">When your program wants to open a file or send a packet, it can't do it directly — it makes a <b>system call</b>, the guarded request into the kernel. The kernel then talks to a <b>device driver</b>, the specialised code that knows how to operate a specific piece of hardware. Drivers run in kernel mode. Press play to follow one request down and back.</p>
+    <div class="stage">
+      <div class="stack">
+        <div class="layer" id="L0"><div class="ln">Your Program</div><div class="ld">"please open report.txt"</div><span class="side">user space</span></div>
+        <div class="pipe" id="P0"></div>
+        <div class="layer" id="L1"><div class="ln">System Call Interface</div><div class="ld">the guarded doorway into the kernel</div><span class="side">the fence</span></div>
+        <div class="pipe" id="P1"></div>
+        <div class="layer" id="L2"><div class="ln">Kernel</div><div class="ld">decides how to handle the request</div><span class="side">ring 0</span></div>
+        <div class="pipe" id="P2"></div>
+        <div class="layer driver" id="L3"><div class="ln">Device Driver</div><div class="ld">knows how to talk to this exact hardware</div><span class="side">ring 0</span></div>
+        <div class="pipe" id="P3"></div>
+        <div class="layer" id="L4"><div class="ln">Hardware (Disk)</div><div class="ld">actually reads the bytes</div><span class="side">metal</span></div>
+      </div>
+      <div class="ctrls">
+        <button class="btn solid" id="syscallPlay">▶ open a file</button>
+        <button class="btn" id="syscallReset">reset</button>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Drivers are a prized target: because they run in the kernel, a buggy one is a direct path to full control. In a <b>BYOVD</b> ("bring your own vulnerable driver") attack, criminals load a legitimately-signed but flawed driver and abuse it to run kernel code. Defenders block known-vulnerable drivers and monitor system-call patterns for abuse.</div>
+    <p class="note">// on Linux, you can literally watch a program's system calls:  strace -e trace=open,read cat file.txt</p>
+  </section>
+
+  <footer>
+    <div class="fmono">operating system concepts — the boundaries, made visible.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 kernel vs user ===== */
+(function(){
+  const msg=$("#s1msg"),door=$("#gateDoor"),rk=$("#rkBox"),mal=$("#malApp"),p1=$("#p1");
+  let rooted=false;
+  $("#btnNormal").addEventListener("click",()=>{msg.innerHTML="✅ A normal instruction (add, compare, move data) runs entirely in <b style='color:var(--cyan)'>user space</b> — no permission needed, the CPU just does it.";});
+  $("#btnDirect").addEventListener("click",()=>{msg.innerHTML="⛔ <b style='color:var(--red)'>Blocked.</b> A user-mode program is not allowed to touch hardware directly. The CPU traps this attempt — this is the fence doing its job.";door.animate([{background:"rgba(248,113,113,.3)"},{background:"transparent"}],{duration:600});});
+  $("#btnSyscall").addEventListener("click",()=>{msg.innerHTML="🔑 A <b style='color:var(--green)'>system call</b> is the one legal way across: the program politely asks the kernel, control crosses the gate into ring 0, the kernel does the privileged work, and hands the result back.";door.classList.add("pulsecross");door.animate([{transform:"scale(1)"},{transform:"scale(1.12)"},{transform:"scale(1)"}],{duration:600});setTimeout(()=>door.classList.remove("pulsecross"),800);});
+  $("#btnRootkit").addEventListener("click",()=>{
+    rooted=!rooted;
+    if(rooted){mal.style.display="";rk.classList.add("show");p1.classList.add("hidden");
+      msg.innerHTML="🐛 The rootkit now runs <b style='color:var(--red)'>inside the kernel</b> — below the OS. Watch the process list: it has hidden \"Browser\" from the OS itself. This is why kernel access is the attacker's jackpot.";
+      $("#btnRootkit").textContent="remove the rootkit";}
+    else{mal.style.display="none";rk.classList.remove("show");p1.classList.remove("hidden");
+      msg.innerHTML="Rootkit removed — \"Browser\" is visible again. Defenders assume this can happen and watch the user→kernel boundary with EDR.";
+      $("#btnRootkit").textContent="install a rootkit";}
+  });
+})();
+
+/* ===== §2 processes & threads ===== */
+(function(){
+  const host=$("#threads");let n=1;
+  $("#addThread").addEventListener("click",()=>{n++;const d=document.createElement("div");d.className="thread";d.innerHTML=`<span class="tl"></span>Thread ${n}`;host.appendChild(d);});
+  $("#injectThread").addEventListener("click",()=>{n++;const d=document.createElement("div");d.className="thread mal";d.innerHTML=`<span class="tl"></span>Thread ${n} — injected 🐛`;host.appendChild(d);});
+  const states=[$("#st0"),$("#st1"),$("#st2"),$("#st3"),$("#st4")];let cur=0;
+  function paint(){states.forEach((s,i)=>s.classList.toggle("on",i===cur));}
+  $("#stepState").addEventListener("click",()=>{cur=(cur+1)%states.length;paint();});
+  paint();
+})();
+
+/* ===== §3 virtual memory ===== */
+(function(){
+  // virtual page -> physical frame (or disk)
+  const MAP=[
+    {vp:"Page 0",loc:"frame",fr:2,tag:"in RAM"},
+    {vp:"Page 1",loc:"frame",fr:5,tag:"in RAM"},
+    {vp:"Page 2",loc:"disk",fr:null,tag:"on disk (swapped)"},
+    {vp:"Page 3",loc:"frame",fr:0,tag:"in RAM"},
+  ];
+  const FRAMES=["Frame 0","Frame 1","Frame 2","Frame 3","Frame 4","Frame 5"];
+  const vp=$("#vpages"),vf=$("#vframes"),msg=$("#vmmsg");
+  MAP.forEach((m,i)=>{const d=document.createElement("div");d.className="page"+(m.loc==="disk"?" ondisk":"");d.dataset.i=i;
+    d.innerHTML=`<span>${m.vp}</span><span class="tag">${m.loc==="disk"?"on disk":"→ ?"}</span>`;vp.appendChild(d);});
+  FRAMES.forEach((f,i)=>{const d=document.createElement("div");d.className="frame";d.id="fr"+i;d.textContent=f+" — free";vf.appendChild(d);});
+  // pre-fill occupied frames
+  MAP.forEach(m=>{if(m.fr!=null){$("#fr"+m.fr).textContent=FRAMES[m.fr]+" — used";}});
+  $$(".page").forEach(pg=>pg.addEventListener("click",()=>{
+    $$(".page").forEach(x=>x.classList.remove("sel"));$$(".frame").forEach(x=>x.classList.remove("lit"));
+    pg.classList.add("sel");
+    const m=MAP[+pg.dataset.i];
+    if(m.loc==="frame"){$("#fr"+m.fr).classList.add("lit");
+      msg.innerHTML=`The page table maps <b style='color:var(--violet)'>${m.vp}</b> → <b style='color:var(--cyan)'>${FRAMES[m.fr]}</b> in real RAM. Fast — it's already loaded.`;}
+    else{msg.innerHTML=`<b style='color:var(--amber)'>Page fault!</b> ${m.vp} isn't in RAM — it was swapped to disk. The OS must fetch it back into a free frame first (slow). This is normal, but lots of it means RAM is exhausted.`;}
+  }));
+})();
+
+/* ===== §4 syscalls & drivers ===== */
+(function(){
+  const layers=["L0","L1","L2","L3","L4"].map(id=>$("#"+id));
+  const pipes=["P0","P1","P2","P3"].map(id=>$("#"+id));
+  let timer=null;
+  function clearAll(){layers.forEach(l=>l.classList.remove("lit"));pipes.forEach(p=>p.classList.remove("lit"));}
+  function play(){
+    if(timer)return; clearAll();
+    // sequence down (0..4) then back up (3..0)
+    const seq=[0,1,2,3,4,3,2,1,0];
+    let i=0;
+    timer=setInterval(()=>{
+      clearAll();
+      const idx=seq[i];
+      layers[idx].classList.add("lit");
+      // light pipe between this and previous in path
+      if(i>0){const prev=seq[i-1];const lo=Math.min(idx,prev);pipes[lo]&&pipes[lo].classList.add("lit");}
+      i++;
+      if(i>=seq.length){clearInterval(timer);timer=null;setTimeout(()=>{layers[0].classList.add("lit");},50);
+        layers[0].querySelector(".ld").textContent="✅ got the file's bytes back";}
+    },420);
+  }
+  $("#syscallPlay").addEventListener("click",play);
+  $("#syscallReset").addEventListener("click",()=>{if(timer){clearInterval(timer);timer=null;}clearAll();layers[0].querySelector(".ld").textContent="\"please open report.txt\"";});
+})();
+</script>
+</body>
+</html>
