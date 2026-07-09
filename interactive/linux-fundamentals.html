@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Linux Fundamentals — the operating system security lives on</title>
+<meta name="description" content="Interactive, security-focused Linux fundamentals: the filesystem, a live permissions calculator, a guided terminal, and a log-analysis pipeline builder. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171; --term:#7ee787;
+    --gc:0 0 14px rgba(34,211,238,.5); --ga:0 0 14px rgba(251,191,36,.5); --gv:0 0 14px rgba(167,139,250,.5); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(126,231,135,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(126,231,135,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(126,231,135,.22),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--term);box-shadow:var(--gg);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--green);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,6.5vw,62px);line-height:1.03;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--term),var(--cyan) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:var(--gg);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--term);color:var(--text);transform:translateY(-2px);box-shadow:var(--gg)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--term)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--term)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.on{background:var(--cyan);color:var(--ink);border-color:transparent;font-weight:700}
+  .btn.term{border-color:var(--line)}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .center{text-align:center}
+  .rowlbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  /* §1 filesystem */
+  .fs{display:grid;grid-template-columns:260px 1fr;gap:16px}
+  @media(max-width:640px){.fs{grid-template-columns:1fr}}
+  .tree{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px;font-family:var(--mono);font-size:13px}
+  .node{padding:8px 10px;border-radius:8px;cursor:pointer;transition:.15s;color:var(--muted);white-space:nowrap}
+  .node:hover{background:rgba(255,255,255,.03);color:var(--text)}
+  .node.sel{background:rgba(126,231,135,.1);color:var(--term)}
+  .node.child{padding-left:26px;font-size:12.5px}
+  .fsdetail{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:18px;min-height:180px}
+  .fsdetail .fp{font-family:var(--mono);font-weight:700;font-size:18px;color:var(--term)}
+  .fsdetail .fw{font-size:14px;color:var(--muted);margin-top:10px}
+  .fsdetail .fsec{margin-top:14px;font-size:13.5px;color:var(--amber);border-top:1px dashed var(--line);padding-top:12px}
+  .fsdetail .fsec b{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+
+  /* §2 permissions calculator */
+  .permgrid{display:grid;grid-template-columns:90px 1fr 1fr 1fr;gap:10px;align-items:center;font-family:var(--mono)}
+  .permgrid .ph{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-align:center}
+  .permgrid .who{font-size:13px;color:var(--muted)}
+  .pbit{border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:.15s;background:var(--panel-2);font-size:13px;color:var(--dim);user-select:none}
+  .pbit.on{background:var(--cyan);color:var(--ink);border-color:transparent;font-weight:700}
+  .permout{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:24px}
+  .pchip{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:16px 22px;text-align:center;min-width:150px}
+  .pchip .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .pchip .v{font-family:var(--mono);font-size:28px;font-weight:700;margin-top:6px;letter-spacing:2px}
+  .pchip.num .v{color:var(--amber)} .pchip.sym .v{color:var(--cyan);font-size:24px}
+  .special{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+  .permwarn{margin-top:18px;min-height:40px;font-size:13.5px;font-family:var(--mono);border-radius:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
+  .permwarn.danger{border-color:var(--red);color:var(--pink);background:rgba(248,113,113,.06)}
+  .presets{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+
+  /* §3 terminal */
+  .term{background:#05070d;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-family:var(--mono)}
+  .term-bar{background:var(--panel);padding:9px 14px;font-size:12px;color:var(--dim);display:flex;gap:7px;align-items:center;border-bottom:1px solid var(--line)}
+  .term-bar .dot{width:11px;height:11px;border-radius:50%}
+  .term-body{padding:16px;font-size:13px;line-height:1.7;min-height:200px;max-height:340px;overflow-y:auto;color:#c9d4e5}
+  .term-body .prompt{color:var(--term)}
+  .term-body .cmd{color:#fff}
+  .term-body .out{color:#9fb0c9;white-space:pre-wrap}
+  .term-body .cap{color:var(--amber);font-size:12px;margin:4px 0 14px;padding-left:10px;border-left:2px solid rgba(251,191,36,.4)}
+  .cmdbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}
+  .cmdbtn{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer;transition:.15s}
+  .cmdbtn:hover{border-color:var(--term);color:var(--term)}
+
+  /* §4 log pipeline */
+  .pipebtns{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .pipebtn{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:11px 14px;border-radius:9px;cursor:pointer;transition:.15s;text-align:left}
+  .pipebtn:hover{border-color:var(--cyan)}
+  .pipebtn.on{border-color:var(--cyan);background:rgba(34,211,238,.06);color:var(--text)}
+  .pipebtn .stage{color:var(--term)}
+  .pipeout{background:#05070d;border:1px solid var(--line);border-radius:12px;padding:16px;font-family:var(--mono);font-size:12.5px;color:#9fb0c9;white-space:pre-wrap;min-height:120px;max-height:300px;overflow-y:auto}
+  .pipeexpl{margin-top:14px;font-size:13.5px;color:var(--muted);min-height:24px}
+  .pipeexpl b{color:var(--cyan)}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:22%;left:0;right:0"></div>
+  <div class="trace" style="top:52%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:78%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · linux fundamentals</div>
+    <h1>Linux:<br/>the OS security <span class="em">lives on</span></h1>
+    <p>Servers, cloud, hacking tools, security systems — they nearly all run Linux. Being at home in its filesystem, permissions, and command line isn't optional in this field; it's the ground everything stands on. Let's get hands-on.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · run everything below</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">The filesystem (FHS)</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Permissions calculator</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Guided terminal</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">Log-analysis pipeline</div></a>
+    </nav>
+    <div class="cue">cd ↓</div>
+  </header>
+
+  <!-- §1 filesystem -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> where everything lives</div>
+    <h2>The Linux filesystem</h2>
+    <p class="lead">Linux organises everything under a single root, <b>/</b>, following the <b>Filesystem Hierarchy Standard</b> — so on any Linux box, you know where to look. Click a location to learn what it holds and why it matters for security.</p>
+    <div class="stage">
+      <div class="fs">
+        <div class="tree" id="tree"></div>
+        <div class="fsdetail" id="fsdetail">Click a folder or file on the left.</div>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>Half of investigating a Linux box is knowing where to look: logs in <code>/var/log</code>, user accounts in <code>/etc/passwd</code>, password hashes in <code>/etc/shadow</code>, and attacker drop-zones in world-writable <code>/tmp</code>. The map <em>is</em> the skill.</p></div>
+    <p class="note">// explore it yourself:  ls /  ·  ls -la /etc  ·  cat /etc/passwd</p>
+  </section>
+
+  <!-- §2 permissions -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> who can do what</div>
+    <h2>Permissions calculator</h2>
+    <p class="lead">Every Linux file has permissions for three groups — <b>owner</b>, <b>group</b>, <b>others</b> — each able to <b>read (r)</b>, <b>write (w)</b>, or <b>execute (x)</b>. Toggle them and watch both the number (what you type in <code>chmod</code>) and the symbolic string (what <code>ls -l</code> shows) update live.</p>
+    <div class="stage">
+      <div class="permgrid">
+        <div></div><div class="ph">read (4)</div><div class="ph">write (2)</div><div class="ph">execute (1)</div>
+        <div class="who">Owner</div>
+        <div class="pbit" data-p="o" data-b="r">r</div><div class="pbit" data-p="o" data-b="w">w</div><div class="pbit" data-p="o" data-b="x">x</div>
+        <div class="who">Group</div>
+        <div class="pbit" data-p="g" data-b="r">r</div><div class="pbit" data-p="g" data-b="w">w</div><div class="pbit" data-p="g" data-b="x">x</div>
+        <div class="who">Others</div>
+        <div class="pbit" data-p="t" data-b="r">r</div><div class="pbit" data-p="t" data-b="w">w</div><div class="pbit" data-p="t" data-b="x">x</div>
+      </div>
+      <div class="special">
+        <div class="pbit" data-s="suid" style="min-width:90px">SUID</div>
+        <div class="pbit" data-s="sgid" style="min-width:90px">SGID</div>
+        <div class="pbit" data-s="sticky" style="min-width:90px">Sticky</div>
+      </div>
+      <div class="permout">
+        <div class="pchip num"><div class="k">chmod number</div><div class="v" id="permNum">000</div></div>
+        <div class="pchip sym"><div class="k">ls -l shows</div><div class="v" id="permSym">----------</div></div>
+      </div>
+      <div class="permwarn" id="permWarn">Toggle bits above to build a permission set.</div>
+      <div class="presets">
+        <button class="btn" data-set="644">644 (normal file)</button>
+        <button class="btn" data-set="755">755 (script/dir)</button>
+        <button class="btn" data-set="600">600 (private key)</button>
+        <button class="btn" data-set="777">777 (danger!)</button>
+        <button class="btn" data-set="4755">SUID root</button>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Permissions are the #1 Linux privilege-escalation surface. A <b>world-writable</b> file others can edit, or a <b>SUID</b> binary owned by root (it runs <em>as root</em> no matter who launches it), can hand an attacker full control. Defenders hunt for these: <code>find / -perm -4000</code> lists every SUID file on the system.</div>
+    <p class="note">// try:  chmod 600 secret.txt  then  ls -l secret.txt  → you'll see -rw-------</p>
+  </section>
+
+  <!-- §3 terminal -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> drive it yourself</div>
+    <h2>A guided terminal</h2>
+    <p class="lead">The command line is where the real work happens — across <b>distros</b> (Kali for attacking, Ubuntu/Debian for the servers you defend) all speaking the same shell language (<b>bash</b>, or <b>zsh</b> on Kali). Click a command to run it in this (simulated) terminal and see realistic output, with a note on what it shows and why it matters. This covers navigation, users, permissions extras (<code>chown</code>, <code>umask</code>), packages, jobs, environment, redirection, archives and remote access.</p>
+    <div class="stage">
+      <div class="term">
+        <div class="term-bar"><span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span>&nbsp; faiza@lab: ~</div>
+        <div class="term-body" id="termBody"><div class="out" style="color:var(--dim)">Click a command below to run it…</div></div>
+      </div>
+      <div class="cmdbtns" id="cmdBtns"></div>
+    </div>
+    <div class="why"><b>why a security person cares</b>The first minutes on a machine are recon: <em>who am I</em> (<code>whoami</code>, <code>id</code>), <em>who else exists</em> (<code>/etc/passwd</code>), <em>what's running</em> (<code>ps</code>), <em>what can I run as root</em> (<code>sudo -l</code>). Attackers and defenders both start here.</div>
+    <p class="note">// every command here is real — try them on any Linux machine or a Kali VM.</p>
+  </section>
+
+  <!-- §4 log pipeline -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> the SOC superpower</div>
+    <h2>Finding an attack in a log</h2>
+    <p class="lead">The real power of Linux is chaining small tools with the <b>pipe</b> (<code>|</code>) — the output of one becomes the input of the next. Here's the exact skill a SOC analyst uses: taking a raw auth log and, step by step, pulling out a brute-force attacker. Click each stage to build the pipeline.</p>
+    <div class="stage">
+      <div class="pipebtns" id="pipeBtns"></div>
+      <div class="pipeout" id="pipeOut"></div>
+      <div class="pipeexpl" id="pipeExpl"></div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>An attacker brute-forcing SSH leaves hundreds of "Failed password" lines. In four piped commands you go from a wall of raw log to "one IP tried 312 times" — a confirmed attack, ready to block. This is genuinely what Tier-1 SOC work looks like.</div>
+    <p class="note">// the real one-liner:  grep "Failed password" /var/log/auth.log | awk '{print $(NF-3)}' | sort | uniq -c | sort -nr</p>
+  </section>
+
+  <footer>
+    <div class="fmono">linux fundamentals — the ground everything else stands on.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 filesystem ===== */
+(function(){
+  const NODES=[
+    {p:"/",lvl:0,w:"The root — everything in Linux lives under this single tree. There are no drive letters like C:\\; every disk is mounted somewhere inside /.",sec:"Knowing the whole system hangs off one root is step one of navigating any Linux box."},
+    {p:"/etc",lvl:1,w:"System-wide configuration files. Text files that control how the machine and its services behave.",sec:"Attackers read configs here for secrets and misconfigurations; defenders check them for tampering."},
+    {p:"/etc/passwd",lvl:1,child:1,w:"A list of every user account (username, UID, home dir, shell). Readable by everyone — it does NOT hold passwords anymore.",sec:"First thing you read to enumerate users. UID 0 = root."},
+    {p:"/etc/shadow",lvl:1,child:1,w:"The actual password hashes, readable only by root.",sec:"The prize for privilege escalation — get this and you can crack passwords offline (with John/Hashcat)."},
+    {p:"/home",lvl:1,w:"Each normal user gets a folder here (e.g. /home/faiza) for their personal files.",sec:"Where user data, SSH keys (~/.ssh), and shell history (.bash_history) live — rich pickings in an investigation."},
+    {p:"/root",lvl:1,w:"The home folder for the root (admin) user. Separate from /home.",sec:"If you can read /root, you're likely already root — or something is badly misconfigured."},
+    {p:"/var/log",lvl:1,w:"Log files — auth.log (logins), syslog (system), and service logs.",sec:"The heart of blue-team work. Also the first thing attackers try to erase to cover tracks."},
+    {p:"/tmp",lvl:1,w:"Temporary files, wiped on reboot. World-writable — anyone can drop files here.",sec:"A favourite attacker staging area precisely because everyone can write to it."},
+    {p:"/bin, /usr/bin",lvl:1,w:"The actual programs/commands (ls, cat, ssh, python…).",sec:"A tampered binary here (a trojaned 'ls') is a classic persistence trick; defenders verify their integrity."},
+  ];
+  const tree=$("#tree"),det=$("#fsdetail");
+  NODES.forEach((n,i)=>{const d=document.createElement("div");d.className="node"+(n.child?" child":"");d.textContent=n.p;d.dataset.i=i;
+    d.addEventListener("click",()=>{$$(".node").forEach(x=>x.classList.remove("sel"));d.classList.add("sel");
+      det.innerHTML=`<div class="fp">${n.p}</div><div class="fw">${n.w}</div><div class="fsec"><b>security relevance</b>${n.sec}</div>`;});
+    tree.appendChild(d);});
+})();
+
+/* ===== §2 permissions calculator ===== */
+(function(){
+  const st={o:{r:false,w:false,x:false},g:{r:false,w:false,x:false},t:{r:false,w:false,x:false},suid:false,sgid:false,sticky:false};
+  const numEl=$("#permNum"),symEl=$("#permSym"),warn=$("#permWarn");
+  function val(p){return (p.r?4:0)+(p.w?2:0)+(p.x?1:0);}
+  function triad(p,special,chLow){
+    let s=(p.r?'r':'-')+(p.w?'w':'-');
+    if(special) s+= p.x?chLow:chLow.toUpperCase();
+    else s+= p.x?'x':'-';
+    return s;
+  }
+  function render(){
+    const special=(st.suid?4:0)+(st.sgid?2:0)+(st.sticky?1:0);
+    numEl.textContent=(special?special:"")+""+val(st.o)+val(st.g)+val(st.t);
+    symEl.textContent="-"+triad(st.o,st.suid,'s')+triad(st.g,st.sgid,'s')+triad(st.t,st.sticky,'t');
+    // reflect toggles
+    $$(".pbit[data-p]").forEach(b=>b.classList.toggle("on",st[b.dataset.p][b.dataset.b]));
+    $$(".pbit[data-s]").forEach(b=>b.classList.toggle("on",st[b.dataset.s]));
+    // warnings
+    let msg="A sensible permission set.",danger=false;
+    if(st.suid){msg="⚠ SUID set: this file runs with its OWNER's privileges no matter who launches it. If the owner is root, that's a top privilege-escalation risk.";danger=true;}
+    else if(st.o.r&&st.o.w&&st.o.x&&st.g.r&&st.g.w&&st.g.x&&st.t.r&&st.t.w&&st.t.x){msg="⚠ 777 — everyone can read, write AND execute. Almost never correct; a classic dangerous misconfiguration.";danger=true;}
+    else if(st.t.w){msg="⚠ World-writable: anyone on the system can modify this file. A common privilege-escalation foothold.";danger=true;}
+    else if(!st.t.r&&!st.t.w&&!st.t.x&&(st.o.r||st.o.w)){msg="🔒 Locked down to the owner — good for private files like SSH keys.";}
+    warn.textContent=msg;warn.classList.toggle("danger",danger);
+  }
+  $$(".pbit[data-p]").forEach(b=>b.addEventListener("click",()=>{st[b.dataset.p][b.dataset.b]=!st[b.dataset.p][b.dataset.b];render();}));
+  $$(".pbit[data-s]").forEach(b=>b.addEventListener("click",()=>{st[b.dataset.s]=!st[b.dataset.s];render();}));
+  $$("[data-set]").forEach(b=>b.addEventListener("click",()=>{
+    let s=b.dataset.set, special=0;
+    if(s.length===4){special=+s[0];s=s.slice(1);}
+    st.suid=!!(special&4);st.sgid=!!(special&2);st.sticky=!!(special&1);
+    const map=[st.o,st.g,st.t];
+    [...s].forEach((d,i)=>{d=+d;map[i].r=!!(d&4);map[i].w=!!(d&2);map[i].x=!!(d&1);});
+    render();
+  }));
+  render();
+})();
+
+/* ===== §3 terminal ===== */
+(function(){
+  const CMDS=[
+    {cmd:"whoami",out:"faiza",cap:"Your current username. First question on any box: who am I?"},
+    {cmd:"id",out:"uid=1000(faiza) gid=1000(faiza) groups=1000(faiza),27(sudo)",cap:"Your IDs and groups. Being in the 'sudo' group means you can run commands as root — attackers check this immediately."},
+    {cmd:"pwd",out:"/home/faiza",cap:"Print working directory — where you currently are in the filesystem tree."},
+    {cmd:"ls -l",out:"-rw-r--r-- 1 faiza faiza  2201 Mar  3 17:30 notes.txt\n-rwxr-xr-x 1 faiza faiza  8408 Mar  3 17:12 scan.sh\ndrwx------ 2 faiza faiza  4096 Mar  3 16:59 .ssh",cap:"Those strings on the left (-rw-r--r--) are exactly what the permissions calculator builds. Note .ssh is locked to the owner (700)."},
+    {cmd:"chown root:root scan.sh",out:"(no output = success)",cap:"chown changes who OWNS a file. Ownership decides who the 'owner' permissions apply to — and matters hugely for SUID privesc."},
+    {cmd:"umask",out:"0022",cap:"The mask subtracted from default permissions for NEW files. 0022 means new files are 644, new folders 755 — a sane, non-world-writable default."},
+    {cmd:"cat /etc/passwd",out:"root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nfaiza:x:1000:1000:Faiza:/home/faiza:/bin/bash",cap:"Every account on the system. UID 0 = root (total power). The 'x' means the password hash lives in /etc/shadow, not here."},
+    {cmd:"sudo -l",out:"User faiza may run the following commands on lab:\n    (ALL : ALL) ALL",cap:"What you're allowed to run as root. This one line means full escalation — the single most important privesc check."},
+    {cmd:"ps aux | head -4",out:"USER   PID %CPU %MEM COMMAND\nroot     1  0.0  0.1 /sbin/init\nroot   642  0.0  0.4 /usr/sbin/sshd\nfaiza 1330  0.2  0.9 /usr/bin/python3",cap:"What's running and as which user. A process running as root is a bigger prize if it's exploitable."},
+    {cmd:"nohup ./scan.sh &",out:"[1] 1841\nnohup: ignoring input and appending output to 'nohup.out'",cap:"Runs a job in the background (&) that KEEPS running after you log out (nohup). Handy — but also a classic persistence trick for attackers."},
+    {cmd:"jobs",out:"[1]+  Running    ./scan.sh &",cap:"Lists background jobs started in this shell — the counterpart to running things with &."},
+    {cmd:"dpkg -l | head -3",out:"ii  bash        5.1-6      amd64  GNU Bourne Again SHell\nii  openssh...   8.9p1     amd64  secure shell (SSH) server\nii  python3      3.10.6    amd64  interactive high-level language",cap:"dpkg lists installed packages (apt is the friendlier layer on top). Outdated packages = known vulnerabilities to patch."},
+    {cmd:"echo $PATH",out:"/usr/local/bin:/usr/bin:/bin:/usr/local/sbin",cap:"PATH is the list of folders the shell searches for commands. PATH HIJACKING — controlling an earlier folder so your fake command runs first — is a real privesc technique."},
+    {cmd:"echo \"log entry\" > out.txt",out:"(no output — text was written INTO the file, not the screen)",cap:"Redirection: '>' sends output to a file (overwrites), '>>' appends. This is how you capture command output. cat out.txt would now show 'log entry'."},
+    {cmd:"tail -f /var/log/auth.log",out:"Mar  3 17:44 sshd: Failed password for root from 203.0.113.42\nMar  3 17:44 sshd: Failed password for root from 203.0.113.42\n^C",cap:"head/tail show the first/last lines; 'tail -f' FOLLOWS a log live — a defender's favourite for watching attacks as they happen."},
+    {cmd:"tar -czf backup.tar.gz notes/",out:"(no output = success — notes/ is now compressed into backup.tar.gz)",cap:"tar bundles files; -czf = create + gzip. Extract with tar -xzf. How data is packaged for backup — or exfiltration."},
+    {cmd:"uname -a",out:"Linux lab 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux",cap:"Kernel and OS version. Attackers match this against known kernel exploits; defenders match it against missing patches."},
+    {cmd:"ssh faiza@10.0.0.5",out:"faiza@10.0.0.5's password: ****\nWelcome to Ubuntu 22.04 LTS\nfaiza@server:~$",cap:"SSH = secure remote login to another machine. scp copies files over the same channel. Stolen SSH keys are a top way attackers move between machines."},
+  ];
+  const body=$("#termBody"),btns=$("#cmdBtns");
+  let first=true;
+  CMDS.forEach(c=>{const b=document.createElement("button");b.className="cmdbtn";b.textContent=c.cmd;
+    b.addEventListener("click",()=>{
+      if(first){body.innerHTML="";first=false;}
+      const block=document.createElement("div");
+      block.innerHTML=`<div><span class="prompt">faiza@lab:~$</span> <span class="cmd">${c.cmd}</span></div><div class="out">${c.out}</div><div class="cap">${c.cap}</div>`;
+      body.appendChild(block);body.scrollTop=body.scrollHeight;
+    });
+    btns.appendChild(b);});
+})();
+
+/* ===== §4 log pipeline ===== */
+(function(){
+  const STAGES=[
+    {label:'<span class="stage">cat</span> auth.log',
+     out:"Mar  3 17:01 sshd: Accepted password for faiza from 192.168.1.5\nMar  3 17:02 sshd: Failed password for root from 203.0.113.42\nMar  3 17:02 sshd: Failed password for root from 203.0.113.42\nMar  3 17:02 sshd: Failed password for admin from 203.0.113.42\n... (hundreds more lines) ...\nMar  3 17:44 sshd: Failed password for root from 198.51.100.7",
+     expl:"The raw log — logins, failures, noise, all mixed together. Unreadable at a glance."},
+    {label:'... | <span class="stage">grep</span> "Failed password"',
+     out:"Failed password for root from 203.0.113.42\nFailed password for root from 203.0.113.42\nFailed password for admin from 203.0.113.42\n... (only the failures now) ...",
+     expl:"<b>grep</b> keeps only lines containing \"Failed password\" — the successful and unrelated lines are gone."},
+    {label:'... | <span class="stage">awk</span> \'{print $NF}\'  (grab the IP)',
+     out:"203.0.113.42\n203.0.113.42\n203.0.113.42\n198.51.100.7\n203.0.113.42\n...",
+     expl:"<b>awk</b> prints just the last field of each line — the attacker's IP address, stripped of everything else."},
+    {label:'... | <span class="stage">sort | uniq -c | sort -nr</span>  (count &amp; rank)',
+     out:"    312 203.0.113.42\n      2 198.51.100.7\n      1 192.168.1.5",
+     expl:"<b>sort | uniq -c</b> counts each IP; <b>sort -nr</b> ranks them. Verdict: <b style='color:var(--pink)'>203.0.113.42 failed 312 times</b> — a brute-force attack, ready to block."},
+  ];
+  const btns=$("#pipeBtns"),out=$("#pipeOut"),expl=$("#pipeExpl");
+  STAGES.forEach((s,i)=>{const b=document.createElement("button");b.className="pipebtn";b.innerHTML=`${i+1}. ${s.label}`;
+    b.addEventListener("click",()=>{$$(".pipebtn").forEach((x,j)=>x.classList.toggle("on",j<=i));out.textContent=s.out;expl.innerHTML=s.expl;});
+    btns.appendChild(b);});
+  out.textContent="Click stage 1 to start building the pipeline.";
+})();
+</script>
+</body>
+</html>
