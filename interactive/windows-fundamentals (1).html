@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Windows Fundamentals — the enterprise battleground</title>
+<meta name="description" content="Interactive, security-focused Windows fundamentals: the Registry, Windows Event logs and Event IDs, users/SIDs/UAC, and a PowerShell/CMD terminal. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171; --blue:#60a5fa;
+    --gc:0 0 14px rgba(34,211,238,.5); --ga:0 0 14px rgba(251,191,36,.5); --gv:0 0 14px rgba(167,139,250,.5); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5); --gb:0 0 14px rgba(96,165,250,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(96,165,250,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(96,165,250,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(96,165,250,.22),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--blue);box-shadow:var(--gb);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--blue);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,6.5vw,62px);line-height:1.03;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--blue),var(--cyan) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:var(--gb);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--blue);color:var(--text);transform:translateY(-2px);box-shadow:var(--gb)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--blue)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--blue)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--blue),var(--violet));color:var(--ink);border-color:transparent;font-weight:700}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .center{text-align:center}
+  /* §1 registry */
+  .reg{display:grid;grid-template-columns:300px 1fr;gap:16px}
+  @media(max-width:640px){.reg{grid-template-columns:1fr}}
+  .regtree{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px;font-family:var(--mono);font-size:12.5px}
+  .rnode{padding:7px 9px;border-radius:7px;cursor:pointer;transition:.15s;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rnode:hover{background:rgba(255,255,255,.03);color:var(--text)}
+  .rnode.sel{background:rgba(96,165,250,.12);color:var(--blue)}
+  .rnode.d1{padding-left:22px}.rnode.d2{padding-left:36px;font-size:11.5px}
+  .rnode .star{color:var(--amber)}
+  .regdetail{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:18px;min-height:200px}
+  .regdetail .rp{font-family:var(--mono);font-size:13px;color:var(--blue);word-break:break-all}
+  .regdetail .rw{font-size:14px;color:var(--muted);margin-top:10px}
+  .regdetail .rsec{margin-top:14px;font-size:13.5px;border-top:1px dashed var(--line);padding-top:12px}
+  .regdetail .rsec b{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+  .regdetail.persist{border-color:var(--red)} .regdetail.persist .rsec{color:var(--pink)} .regdetail.persist .rsec b{color:var(--red)}
+  .regdetail.normal .rsec{color:var(--amber)} .regdetail.normal .rsec b{color:var(--amber)}
+
+  /* §2 event logs */
+  .evchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .evchip{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer;transition:.15s;background:var(--panel-2);color:var(--muted)}
+  .evchip:hover{color:var(--text)}
+  .evchip.sel{border-color:var(--blue);color:var(--blue);background:rgba(96,165,250,.08)}
+  .evchip .id{font-weight:700}
+  .evdetail{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:80px;font-size:14px;color:var(--muted)}
+  .evdetail .et{font-family:var(--mono);font-weight:700;font-size:15px;margin-bottom:6px}
+  .story{margin-top:18px;background:#05070d;border:1px solid var(--line);border-radius:12px;padding:14px;font-family:var(--mono);font-size:12.5px;line-height:1.9;max-height:280px;overflow-y:auto}
+  .logline{opacity:.35;transition:.4s;padding:2px 0}
+  .logline.show{opacity:1}
+  .logline .eid{display:inline-block;min-width:52px;font-weight:700}
+  .eid.ok{color:var(--green)} .eid.bad{color:var(--red)} .eid.warn{color:var(--amber)} .eid.info{color:var(--blue)}
+  .storyverdict{margin-top:12px;font-size:13.5px;color:var(--pink);min-height:20px}
+
+  /* §3 users/sids/uac */
+  .accts{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .acct{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--panel-2);font-family:var(--mono);font-size:12.5px;flex-wrap:wrap}
+  .acct .an{color:var(--text)}
+  .acct .sid{color:var(--dim);font-size:11px}
+  .acct .rid{font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(96,165,250,.12);color:var(--blue)}
+  .acct.admin .rid{background:rgba(248,113,113,.14);color:var(--red)}
+  .uac{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel-2);text-align:center}
+  .tokens{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+  .token{border:1px solid var(--line);border-radius:12px;padding:16px;min-width:170px;transition:.3s}
+  .token .tk{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .token .tv{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:8px}
+  .token.standard{border-color:var(--slate)} .token.standard .tv{color:var(--slate)}
+  .token.admin{opacity:.3} .token.admin.on{opacity:1;border-color:var(--amber);box-shadow:var(--ga)} .token.admin .tv{color:var(--amber)}
+  .uacmsg{font-size:13.5px;color:var(--muted);margin-top:10px;min-height:22px}
+
+  /* §4 terminal */
+  .term{background:#05070d;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-family:var(--mono)}
+  .term-bar{background:var(--panel);padding:9px 14px;font-size:12px;color:var(--dim);display:flex;gap:7px;align-items:center;border-bottom:1px solid var(--line)}
+  .term-body{padding:16px;font-size:13px;line-height:1.7;min-height:200px;max-height:340px;overflow-y:auto;color:#c9d4e5}
+  .term-body .prompt{color:var(--blue)}
+  .term-body .cmd{color:#fff}
+  .term-body .out{color:#9fb0c9;white-space:pre-wrap}
+  .term-body .cap{color:var(--amber);font-size:12px;margin:4px 0 14px;padding-left:10px;border-left:2px solid rgba(251,191,36,.4)}
+  .cmdbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}
+  .cmdbtn{font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:8px 11px;border-radius:8px;cursor:pointer;transition:.15s}
+  .cmdbtn:hover{border-color:var(--blue);color:var(--blue)}
+  .cmdbtn.ps{border-left:2px solid var(--violet)}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  code{font-family:var(--mono);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;font-size:.9em}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:22%;left:0;right:0"></div>
+  <div class="trace" style="top:52%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:78%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · windows fundamentals</div>
+    <h1>Windows:<br/>the enterprise <span class="em">battleground</span></h1>
+    <p>Most companies run on Windows — so most attacks, and most defending, happen here. Knowing the Registry, the event logs, and how Windows handles users and privileges is the core of real SOC work. Let's dig in.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · every panel is live</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">The Registry</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Event Logs &amp; Event IDs</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Users, SIDs &amp; UAC</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">PowerShell &amp; CMD</div></a>
+      <a class="tcard" href="#s5"><div class="tn">05</div><div class="tt">Filesystem &amp; toolkit</div></a>
+    </nav>
+    <div class="cue">boot ↓</div>
+  </header>
+
+  <!-- §1 registry -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> the system's brain</div>
+    <h2>The Windows Registry</h2>
+    <p class="lead">The Registry is a giant hierarchical database of settings for Windows and its programs — think of it as Linux's <code>/etc</code>, but as one searchable tree. It's organised into <b>hives</b> (top-level branches), then <b>keys</b> (folders) holding <b>values</b> (settings). Click around — the ⭐ entries are the ones every analyst watches.</p>
+    <div class="stage">
+      <div class="reg">
+        <div class="regtree" id="regtree"></div>
+        <div class="regdetail" id="regdetail">Click a hive or key on the left.</div>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>The Registry is the #1 place malware hides to survive a reboot (<b>persistence</b>). The "Run" keys auto-launch programs at login — so attackers add themselves there. Defenders (and forensics tools) inspect these exact keys first. It's also where password hashes (SAM) and huge amounts of forensic evidence live.</div>
+    <p class="note">// open it yourself:  press Win+R → type  regedit  ·  or query from CMD:  reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run"</p>
+  </section>
+
+  <!-- §2 event logs -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> the blue-team core</div>
+    <h2>Event Logs &amp; Event IDs</h2>
+    <p class="lead">Windows records almost everything as numbered <b>events</b> in the Event Log. Learning the key <b>Event IDs</b> is the heart of SOC work — they're how you reconstruct what happened. Click an ID to learn it, then hit "replay an attack" to watch a real intrusion tell its story through the logs.</p>
+    <div class="stage">
+      <div class="evchips" id="evchips"></div>
+      <div class="evdetail" id="evdetail">Click an Event ID above to learn what it means.</div>
+      <div class="story" id="story"></div>
+      <div class="storyverdict" id="storyverdict"></div>
+      <div class="ctrls">
+        <button class="btn solid" id="replayBtn">▶ replay an attack in the logs</button>
+        <button class="btn" id="replayReset">reset</button>
+      </div>
+    </div>
+    <div class="why"><b>why a security person cares</b>This <em>is</em> the job. A burst of <b>4625</b> (failed logons) then a <b>4624</b> (success) = a brute-force that worked. A <b>4720</b> (new user) you didn't expect = the attacker creating a backdoor account. A <b>1102</b> (log cleared) = someone covering their tracks. You read these all day.</div>
+    <p class="note">// open it yourself:  Win+R → eventvwr  → Windows Logs → Security</p>
+  </section>
+
+  <!-- §3 users/sids/uac -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> identity &amp; privilege</div>
+    <h2>Users, SIDs &amp; UAC</h2>
+    <p class="lead">Windows identifies every account not by name but by a <b>SID</b> (Security Identifier) — a unique string ending in a <b>RID</b>. Some RIDs are famous: <b>500</b> is always the real Administrator. And <b>UAC</b> is why even an admin runs with reduced power until they explicitly elevate.</p>
+    <div class="stage">
+      <div class="accts" id="accts"></div>
+      <div class="uac">
+        <div class="rowlbl" style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">User Account Control — your admin token is <em>split</em></div>
+        <div class="tokens">
+          <div class="token standard"><div class="tk">everyday token</div><div class="tv">Standard user</div><div style="font-size:12px;color:var(--muted);margin-top:6px">what you run with by default</div></div>
+          <div class="token admin" id="adminToken"><div class="tk">elevated token</div><div class="tv">Administrator</div><div style="font-size:12px;color:var(--muted);margin-top:6px">only after you approve</div></div>
+        </div>
+        <div class="uacmsg" id="uacmsg">You're using the standard token. Click below to request elevation.</div>
+        <div class="ctrls"><button class="btn solid" id="uacBtn">⚙ Run as Administrator</button></div>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Attackers aim for the RID-500 admin or SYSTEM (the most powerful account of all). <b>UAC bypasses</b> are techniques to grab the elevated token without the prompt, and <b>token theft/impersonation</b> steals another logged-in user's access. Defenders monitor for elevation events (<b>4672</b>) and unusual privilege use.</div>
+    <p class="note">// see your identity:  whoami /user  (shows your SID)  ·  whoami /priv  (your privileges)</p>
+  </section>
+
+  <!-- §4 terminal -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> drive it yourself</div>
+    <h2>PowerShell &amp; CMD</h2>
+    <p class="lead">Windows has two shells: old <b>CMD</b> and the powerful <b>PowerShell</b> (violet-marked below). This is where recon, administration, and a lot of attacks happen. Click a command to run it and see realistic output — covering processes, services, scheduled tasks, permissions, networking and the registry.</p>
+    <div class="stage">
+      <div class="term">
+        <div class="term-bar"><span style="color:var(--blue)">PS</span> C:\Users\faiza&gt;</div>
+        <div class="term-body" id="termBody"><div class="out" style="color:var(--dim)">Click a command below to run it…</div></div>
+      </div>
+      <div class="cmdbtns" id="cmdBtns"></div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>PowerShell is a double-edged sword: admins love it, and so do attackers ("living off the land" — using built-in tools so nothing looks out of place). That's why defenders enable <b>PowerShell script-block logging</b>, which records the real commands even when they're obfuscated or Base64-encoded.</div>
+    <p class="note">// PowerShell-marked (violet) commands use verb-noun cmdlets like Get-Process; the rest are classic CMD.</p>
+  </section>
+
+  <!-- §5 filesystem & toolkit -->
+  <section id="s5">
+    <div class="eyebrow"><span class="no">05</span> the lay of the land</div>
+    <h2>Filesystem &amp; the defender's toolkit</h2>
+    <p class="lead">Unlike Linux's single <code>/</code> tree, Windows splits storage across <b>drive letters</b> (<code>C:\</code>, <code>D:\</code>). Knowing which folders hold what — and which ones malware loves — is core to spotting something out of place. Windows also ships in <b>editions</b> (Home, Pro, Enterprise) built on the same core. Click a location to learn it.</p>
+    <div class="stage">
+      <div class="reg">
+        <div class="regtree" id="fstree"></div>
+        <div class="regdetail" id="fsdetail">Click a location on the left.</div>
+      </div>
+    </div>
+    <div class="why"><b>the defender's toolkit — Sysinternals</b>Microsoft's free <b>Sysinternals</b> suite is the Windows investigator's essential kit: <b>Process Explorer</b> (a super Task Manager showing parent/child and signatures), <b>Autoruns</b> (lists <em>everything</em> set to auto-start — the fastest way to spot persistence), and <b>Procmon</b> (records every file/registry/process action live). If you learn one Windows toolset, learn this one.</div>
+    <p class="note">// grab it free:  learn.microsoft.com/sysinternals  ·  Autoruns alone will teach you more about persistence than any lecture.</p>
+  </section>
+
+  <footer>
+    <div class="fmono">windows fundamentals — where the enterprise is won and lost.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 registry ===== */
+(function(){
+  const NODES=[
+    {p:"HKEY_LOCAL_MACHINE (HKLM)",d:0,w:"Machine-wide settings that apply to ALL users. Changing most of it needs admin rights. The biggest, most important hive.",sec:"Machine-level persistence and config live here.",kind:"normal"},
+    {p:"HKLM\\SOFTWARE\\...\\Run",d:1,star:1,w:"Programs listed here launch automatically at startup for every user on the machine.",sec:"⭐ The #1 persistence location. Malware adds itself here to survive reboots. Analysts check it first.",kind:"persist"},
+    {p:"HKLM\\SYSTEM\\...\\Services",d:1,w:"Configuration for every Windows service — what runs, and how.",sec:"Attackers create or hijack a service here for stealthy, high-privilege persistence.",kind:"persist"},
+    {p:"HKLM\\SAM",d:1,w:"The Security Accounts Manager — stores local user password hashes.",sec:"⭐ The Windows equivalent of /etc/shadow. Dumping it lets attackers crack passwords offline.",kind:"persist"},
+    {p:"HKEY_CURRENT_USER (HKCU)",d:0,w:"Settings for the currently logged-in user only. No admin needed to change your own.",sec:"Per-user persistence that doesn't require admin — attractive to attackers with limited rights.",kind:"normal"},
+    {p:"HKCU\\SOFTWARE\\...\\Run",d:1,star:1,w:"Programs that auto-start when THIS user logs in.",sec:"⭐ Persistence that needs no admin rights — a favourite of low-privilege malware.",kind:"persist"},
+  ];
+  const tree=$("#regtree"),det=$("#regdetail");
+  NODES.forEach((n,i)=>{const d=document.createElement("div");d.className="rnode d"+n.d;
+    d.innerHTML=(n.star?'<span class="star">★</span> ':'')+n.p;
+    d.addEventListener("click",()=>{$$(".rnode").forEach(x=>x.classList.remove("sel"));d.classList.add("sel");
+      det.className="regdetail "+n.kind;
+      det.innerHTML=`<div class="rp">${n.p}</div><div class="rw">${n.w}</div><div class="rsec"><b>security relevance</b>${n.sec}</div>`;});
+    tree.appendChild(d);});
+})();
+
+/* ===== §2 event logs ===== */
+(function(){
+  const EV=[
+    {id:"4624",t:"Successful logon",cls:"ok",d:"An account successfully logged on. Normal — but WHO, WHEN, and from WHERE matters. A 4624 at 3am from an odd host is worth a look."},
+    {id:"4625",t:"Failed logon",cls:"bad",d:"A logon attempt failed. One is nothing; a burst of them against one account is a brute-force attack in progress."},
+    {id:"4688",t:"Process creation",cls:"info",d:"A new process started (with its command line, if configured). The backbone of spotting malicious execution — e.g. Word launching PowerShell."},
+    {id:"4672",t:"Special privileges assigned",cls:"warn",d:"An account logged on with admin-level privileges. Expected for admins; suspicious for a normal user account."},
+    {id:"4720",t:"User account created",cls:"warn",d:"A new user account was made. If no one was supposed to create one, this is often an attacker planting a backdoor account."},
+    {id:"1102",t:"Audit log cleared",cls:"bad",d:"The Security log was wiped. Almost always an attacker covering their tracks — a serious red flag on its own."},
+  ];
+  const chips=$("#evchips"),det=$("#evdetail");
+  EV.forEach(e=>{const c=document.createElement("div");c.className="evchip";c.innerHTML=`<span class="id">${e.id}</span> ${e.t}`;
+    c.addEventListener("click",()=>{$$(".evchip").forEach(x=>x.classList.remove("sel"));c.classList.add("sel");
+      det.innerHTML=`<div class="et"><span class="eid ${e.cls}">${e.id}</span> — ${e.t}</div>${e.d}`;});
+    chips.appendChild(c);});
+
+  const STORY=[
+    {id:"4625",cls:"bad",txt:"09:14  Failed logon — user 'administrator' from 203.0.113.42"},
+    {id:"4625",cls:"bad",txt:"09:14  Failed logon — user 'administrator' from 203.0.113.42"},
+    {id:"4625",cls:"bad",txt:"09:14  Failed logon — user 'administrator' from 203.0.113.42  (…×200 more)"},
+    {id:"4624",cls:"ok",txt:"09:15  Successful logon — 'administrator' from 203.0.113.42"},
+    {id:"4672",cls:"warn",txt:"09:15  Special privileges assigned to 'administrator'"},
+    {id:"4720",cls:"warn",txt:"09:17  User account created — 'support_svc'"},
+    {id:"1102",cls:"bad",txt:"09:22  Audit log cleared"},
+  ];
+  const story=$("#story"),verdict=$("#storyverdict");
+  STORY.forEach((s,i)=>{const d=document.createElement("div");d.className="logline";d.id="ll"+i;
+    d.innerHTML=`<span class="eid ${s.cls}">${s.id}</span> ${s.txt}`;story.appendChild(d);});
+  let timer=null;
+  $("#replayBtn").addEventListener("click",()=>{
+    if(timer)return; verdict.textContent="";$$(".logline").forEach(l=>l.classList.remove("show"));
+    let i=0;timer=setInterval(()=>{
+      if(i>=STORY.length){clearInterval(timer);timer=null;
+        verdict.innerHTML="🚨 The story: ~200 failed logons → one success → admin rights → a new backdoor account → logs cleared. A full compromise, told entirely through Event IDs.";return;}
+      $("#ll"+i).classList.add("show");i++;
+    },700);
+  });
+  $("#replayReset").addEventListener("click",()=>{if(timer){clearInterval(timer);timer=null;}$$(".logline").forEach(l=>l.classList.remove("show"));verdict.textContent="";});
+})();
+
+/* ===== §3 users/sids/uac ===== */
+(function(){
+  const ACCTS=[
+    {n:"Administrator",sid:"S-1-5-21-1004336348-…-500",rid:"RID 500",admin:1,note:"the real built-in admin"},
+    {n:"Guest",sid:"S-1-5-21-1004336348-…-501",rid:"RID 501",admin:0,note:"disabled by default"},
+    {n:"faiza",sid:"S-1-5-21-1004336348-…-1001",rid:"RID 1001",admin:0,note:"a normal user"},
+    {n:"SYSTEM",sid:"S-1-5-18",rid:"SYSTEM",admin:1,note:"the OS itself — most powerful of all"},
+  ];
+  const box=$("#accts");
+  ACCTS.forEach(a=>{const d=document.createElement("div");d.className="acct"+(a.admin?" admin":"");
+    d.innerHTML=`<span class="an">${a.n} <span style="color:var(--dim)">— ${a.note}</span></span><span><span class="sid">${a.sid}</span> &nbsp; <span class="rid">${a.rid}</span></span>`;
+    box.appendChild(d);});
+  const tok=$("#adminToken"),msg=$("#uacmsg"),btn=$("#uacBtn");let up=false;
+  btn.addEventListener("click",()=>{up=!up;tok.classList.toggle("on",up);
+    if(up){msg.innerHTML="🛡️ <b style='color:var(--amber)'>UAC prompt approved</b> — you're now running with the elevated Administrator token. This is why admins don't hold full power all the time: it limits the blast radius if something malicious runs.";btn.textContent="drop back to standard";}
+    else{msg.textContent="You're using the standard token. Click below to request elevation.";btn.textContent="⚙ Run as Administrator";}
+  });
+})();
+
+/* ===== §5 filesystem & key dirs ===== */
+(function(){
+  const NODES=[
+    {p:"C:\\",d:0,w:"The main drive — Windows' equivalent of Linux's root, but one of several possible drive letters (C:, D:, USB drives get their own).",sec:"Everything starts here. Extra unexpected drives can be attacker-mounted storage.",kind:"normal"},
+    {p:"C:\\Windows\\System32",d:1,w:"The heart of Windows — core OS programs and DLLs live here (despite the name, it holds 64-bit files).",sec:"⭐ Malware loves to masquerade as a legit System32 name (a fake svchost.exe). Location + signature give it away.",kind:"persist"},
+    {p:"C:\\Program Files",d:1,w:"Installed applications (64-bit). 32-bit apps go in 'Program Files (x86)'.",sec:"Writable only by admins — so a program running from here is more trustworthy than one in a user folder.",kind:"normal"},
+    {p:"C:\\Users\\<name>",d:1,w:"Each user's personal folder — Desktop, Documents, Downloads.",sec:"Where user files, browser data, and evidence live in an investigation.",kind:"normal"},
+    {p:"...\\AppData",d:2,w:"Hidden per-user folder for application data and settings (Roaming, Local).",sec:"⭐ The #1 malware hiding spot — normal users can write here WITHOUT admin, so low-privilege malware drops its files here.",kind:"persist"},
+    {p:"C:\\Windows\\Temp  &  %TEMP%",d:1,w:"Temporary files for the system and each user.",sec:"World-writable staging area — a common place for droppers and tools to land briefly.",kind:"persist"},
+  ];
+  const tree=document.getElementById("fstree"),det=document.getElementById("fsdetail");
+  if(!tree)return;
+  NODES.forEach(n=>{const d=document.createElement("div");d.className="rnode d"+n.d;
+    d.innerHTML=(n.kind==="persist"?'<span class="star">★</span> ':'')+n.p;
+    d.addEventListener("click",()=>{[...tree.querySelectorAll(".rnode")].forEach(x=>x.classList.remove("sel"));d.classList.add("sel");
+      det.className="regdetail "+n.kind;
+      det.innerHTML=`<div class="rp">${n.p}</div><div class="rw">${n.w}</div><div class="rsec"><b>security relevance</b>${n.sec}</div>`;});
+    tree.appendChild(d);});
+})();
+
+/* ===== §4 terminal ===== */
+(function(){
+  const CMDS=[
+    {cmd:"whoami",ps:0,out:"lab\\faiza",cap:"Your current user, as DOMAIN\\username. First recon question on any Windows box."},
+    {cmd:"whoami /priv",ps:0,out:"SeShutdownPrivilege            Disabled\nSeChangeNotifyPrivilege       Enabled\nSeIncreaseWorkingSetPrivilege Enabled",cap:"Your privileges. Certain ones (like SeImpersonate, SeBackup) are gold for privilege escalation — attackers check this list."},
+    {cmd:"net user",ps:0,out:"User accounts for \\\\LAB\n---------------------------\nAdministrator   Guest   faiza   support_svc",cap:"All local accounts. An unexpected one (like 'support_svc') can be an attacker's backdoor."},
+    {cmd:"net localgroup administrators",ps:0,out:"Members\n-------\nAdministrator\nfaiza",cap:"Who has admin rights. One of the first things checked on both sides — extra members here are a red flag."},
+    {cmd:"tasklist",ps:0,out:"Image Name          PID Session\nsvchost.exe         812 Services\nexplorer.exe       2140 Console\npowershell.exe     3320 Console",cap:"Running processes. Malware often disguises itself as a legit name like svchost.exe — location and parent give it away."},
+    {cmd:"sc query",ps:0,out:"SERVICE_NAME: Spooler\n  STATE : 4  RUNNING\nSERVICE_NAME: WinDefend\n  STATE : 4  RUNNING",cap:"Windows services. Attackers create or hijack a service for stealthy, high-privilege persistence."},
+    {cmd:"schtasks /query /fo LIST",ps:0,out:"TaskName: \\UpdateCheck\nNext Run Time: 3:00:00 AM\nTaskName: \\MSUpd_svc   <-- suspicious",cap:"Scheduled tasks — a top persistence method (run malware daily at 3am). A defender audits these for anything unfamiliar."},
+    {cmd:'reg query "HKCU\\...\\Run"',ps:0,out:"OneDrive    REG_SZ    C:\\...\\OneDrive.exe\nupdater     REG_SZ    C:\\Users\\faiza\\AppData\\...\\x.exe   <-- odd",cap:"Registry autostart entries. That AppData path is exactly where malware likes to persist — a classic finding."},
+    {cmd:"icacls report.txt",ps:0,out:"report.txt  BUILTIN\\Administrators:(F)\n            lab\\faiza:(R)\n            Everyone:(R)",cap:"NTFS permissions (ACLs) — Windows' version of Linux rwx, but richer. (F)=full, (R)=read. 'Everyone' with write would be a red flag."},
+    {cmd:"systeminfo",ps:0,out:"OS Name:  Microsoft Windows 10 Pro\nOS Version: 10.0.19045\nHotfix(s): 47 installed",cap:"OS version and installed patches. Attackers match this against known exploits; defenders check for missing hotfixes."},
+    {cmd:"ipconfig /all",ps:0,out:"IPv4 Address. . . : 10.0.0.23\nDefault Gateway . : 10.0.0.1\nDNS Servers . . . : 10.0.0.1",cap:"Network configuration — the machine's place on the network. Step one of understanding what else it can reach."},
+    {cmd:"Get-Process | Sort CPU -desc",ps:1,out:"Handles  CPU(s)   Id ProcessName\n   1204   88.2  3320 powershell\n    340   12.1   812 svchost",cap:"PowerShell's richer version of tasklist — returns real objects you can sort and filter. This power is why attackers love PowerShell too."},
+    {cmd:"Get-MpComputerStatus",ps:1,out:"AntivirusEnabled        : True\nRealTimeProtection...   : True\nAMEngineVersion         : 1.1.24010.10",cap:"Checks Microsoft Defender — Windows' built-in antivirus. Attackers try to DISABLE it; a defender confirms it's on and healthy."},
+    {cmd:"netsh advfirewall show allprofiles",ps:0,out:"Domain Profile Settings:\n  State                 ON\nPublic Profile Settings:\n  State                 ON",cap:"The Windows Firewall status. Malware often opens holes or turns it off — verifying it's ON across profiles is a basic check."},
+    {cmd:"dir C:\\Users\\faiza\\AppData\\Roaming",ps:0,out:"<DIR>  Microsoft\n<DIR>  OneDrive\n       updater.exe   <-- suspicious",cap:"AppData is per-user app storage — and the #1 place malware hides an executable, because normal users can write here without admin."},
+  ];
+  const body=$("#termBody"),btns=$("#cmdBtns");let first=true;
+  CMDS.forEach(c=>{const b=document.createElement("button");b.className="cmdbtn"+(c.ps?" ps":"");b.textContent=c.cmd;
+    b.addEventListener("click",()=>{
+      if(first){body.innerHTML="";first=false;}
+      const blk=document.createElement("div");
+      blk.innerHTML=`<div><span class="prompt">PS C:\\Users\\faiza&gt;</span> <span class="cmd">${c.cmd}</span></div><div class="out">${c.out}</div><div class="cap">${c.cap}</div>`;
+      body.appendChild(blk);body.scrollTop=body.scrollHeight;
+    });
+    btns.appendChild(b);});
+})();
+</script>
+</body>
+</html>
