@@ -5,7 +5,7 @@ what it is, how I practiced it, a real-world example, and how it's
 used on both the red (offensive) and blue (defensive) side.
 
 > 🖥️ **Want to see this come alive?** I built an interactive, animated version of these concepts — click through the memory hierarchy, watch a byte travel to the CPU, and run the fetch–decode–execute loop.
-> **▶ [View the interactive version](https://faizambn.github.io/linux-windows-fundamentals/inside-the-machine.html)**
+> **▶ [View the interactive version](https://faizambn.github.io/linux-windows-fundamentals/interactive/inside-the-machine.html)**
 ---
 
 ## 1. CPU, cores, registers, and cache
