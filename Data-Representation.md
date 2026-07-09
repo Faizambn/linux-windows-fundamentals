@@ -1,4 +1,4 @@
-> 🔢 **The concept, explained visually:** [interactive version](https://faizambn.github.io/linux-windows-fundamentals/data-representation.html)
+> 🔢 **The concept, explained visually:** [interactive version](https://faizambn.github.io/linux-windows-fundamentals/interactive/data-representation.html)
 >
 > The interactive page teaches *what* these things are. These notes are the part
 > that matters for a security career: how attackers turn each concept into a weapon,
