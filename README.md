@@ -27,13 +27,13 @@ Explore anything that's useful to you.
 
 | # | Topic | Notes | Interactive Page |
 |:-:|-------|:-----:|:----------------:|
-| 1 | Computer Architecture | [📖 Notes](Computer-fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/inside-the-machine.html) |
-| 2 | Data Representation | [📖 Notes](Data-Representation.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/data-representation.html) |
-| 3 | Operating System Concepts | [📖 Notes](Operating-System-Concepts.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/operating-system-concepts.html) |
-| 4 | Linux Fundamentals | [📖 Notes](Linux-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/linux-fundamentals.html) |
-| 5 | Windows Fundamentals | [📖 Notes](Windows-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/windows-fundamentals.html) |
-| 6 | Active Directory (intro) | [📖 Notes](Active-Directory.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/active-directory.html) |
-| 7 | Virtualization & Lab Setup | [📖 Notes](Virtualization-Lab-Setup.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/virtualization-lab-setup.html) |
+| 1 | Computer Architecture | [📖 Notes](Notes/Computer-fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/inside-the-machine.html) |
+| 2 | Data Representation | [📖 Notes](Notes/Data-Representation.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/data-representation.html) |
+| 3 | Operating System Concepts | [📖 Notes](Notes/operating-system-concepts.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/operating-system-concepts.html) |
+| 4 | Linux Fundamentals | [📖 Notes](Notes/Linux-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/linux-fundamentals.html) |
+| 5 | Windows Fundamentals | [📖 Notes](Notes/Windows-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/windows-fundamentals.html) |
+| 6 | Active Directory (intro) | [📖 Notes](Notes/Active-Directory.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/active-directory.html) |
+| 7 | Virtualization & Lab Setup | [📖 Notes](Notes/Virtualization-Lab-Setup.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/virtualization-lab-setup.html) |
 
 > 💡 **Notes** open right here on GitHub. **Interactive** pages are hosted on GitHub Pages —
 > live, animated explainers (permissions calculators, log-analysis builders, Kerberos flows, and more).
@@ -44,7 +44,7 @@ Explore anything that's useful to you.
 linux-windows-fundamentals/
 ├── README.md               ← you are here
 ├── LICENSE
-├── *.md                    ← security notes, one per topic
+├── Notes/                  ← security notes, one .md per topic
 └── interactive/            ← animated explainer pages (.html)
 ```
 
