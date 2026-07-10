@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Active Directory — the keys to the kingdom</title>
+<meta name="description" content="Interactive intro to Active Directory for security: structure (forests/domains/OUs/DCs), Kerberos authentication, attack paths, and the key AD attacks and defenses. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171; --blue:#60a5fa;
+    --gc:0 0 14px rgba(34,211,238,.5); --ga:0 0 14px rgba(251,191,36,.5); --gv:0 0 14px rgba(167,139,250,.5); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(167,139,250,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,.22),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--violet);box-shadow:var(--gv);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--violet);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,6.5vw,62px);line-height:1.03;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--violet),var(--cyan) 55%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--violet);box-shadow:var(--gv);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--violet);color:var(--text);transform:translateY(-2px);box-shadow:var(--gv)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--violet)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--violet)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--violet),var(--cyan));color:var(--ink);border-color:transparent;font-weight:700}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .center{text-align:center}
+  .rowlbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  code{font-family:var(--mono);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;font-size:.9em}
+  /* §1 structure tree */
+  .adstruct{display:grid;grid-template-columns:290px 1fr;gap:16px}
+  @media(max-width:640px){.adstruct{grid-template-columns:1fr}}
+  .adtree{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px;font-family:var(--mono);font-size:12.5px}
+  .anode{padding:7px 9px;border-radius:7px;cursor:pointer;transition:.15s;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .anode:hover{background:rgba(255,255,255,.03);color:var(--text)}
+  .anode.sel{background:rgba(167,139,250,.13);color:var(--violet)}
+  .anode.d1{padding-left:20px}.anode.d2{padding-left:34px;font-size:11.5px}.anode.d3{padding-left:48px;font-size:11.5px}
+  .anode .star{color:var(--amber)}
+  .addetail{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:18px;min-height:200px}
+  .addetail .ap{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--violet)}
+  .addetail .aw{font-size:14px;color:var(--muted);margin-top:10px}
+  .addetail .asec{margin-top:14px;font-size:13.5px;color:var(--amber);border-top:1px dashed var(--line);padding-top:12px}
+  .addetail .asec b{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+
+  /* §2 kerberos flow */
+  .kerb{display:flex;flex-direction:column;gap:0;align-items:center}
+  .kactor{display:flex;justify-content:space-between;width:100%;max-width:560px;gap:12px}
+  .kbox{flex:1;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;background:var(--panel-2);transition:.3s}
+  .kbox .kn{font-family:var(--mono);font-weight:700;font-size:13px}
+  .kbox .kd{font-size:11px;color:var(--muted);margin-top:3px}
+  .kbox.lit{border-color:var(--violet);box-shadow:var(--gv);background:rgba(167,139,250,.07)}
+  .kstep{width:100%;max-width:560px;margin:10px 0;font-family:var(--mono);font-size:12.5px;color:var(--dim);border:1px dashed var(--line);border-radius:9px;padding:10px 12px;opacity:.4;transition:.3s}
+  .kstep.lit{opacity:1;border-color:var(--cyan);color:var(--text);border-style:solid}
+  .kstep .tk{color:var(--amber);font-weight:700}
+  .kmsg{margin-top:16px;min-height:40px;font-size:14px;color:var(--muted);background:#05070d;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+
+  /* §3 attack path graph */
+  .graph{display:flex;flex-direction:column;gap:0;align-items:center;font-family:var(--mono)}
+  .gnode{width:100%;max-width:420px;border:1px solid var(--line);border-radius:11px;padding:12px 15px;background:var(--panel-2);transition:.35s;text-align:center}
+  .gnode .gt{font-weight:700;font-size:13.5px}
+  .gnode .gs{font-size:11px;color:var(--muted);margin-top:2px}
+  .gnode.lit{border-color:var(--red);box-shadow:var(--gr);background:rgba(248,113,113,.06)}
+  .gnode.start.lit{border-color:var(--cyan);box-shadow:var(--gc);background:rgba(34,211,238,.06)}
+  .gnode.end.lit{border-color:var(--amber);box-shadow:var(--ga);background:rgba(251,191,36,.08)}
+  .gedge{font-family:var(--mono);font-size:11px;color:var(--dim);padding:6px 0;transition:.3s}
+  .gedge.lit{color:var(--red)}
+  .gmsg{margin-top:16px;min-height:32px;font-size:14px;color:var(--muted);text-align:center}
+
+  /* §4 attack cards */
+  .atkcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:18px}
+  .atkcard{border:1px solid var(--line);border-radius:11px;padding:13px;cursor:pointer;transition:.15s;background:var(--panel-2);text-align:center}
+  .atkcard:hover{border-color:var(--red);color:var(--text)}
+  .atkcard.sel{border-color:var(--red);background:rgba(248,113,113,.08);box-shadow:var(--gr)}
+  .atkcard .acn{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--pink)}
+  .atkcard .acs{font-size:11px;color:var(--dim);margin-top:4px}
+  .atkdetail{background:#05070d;border:1px solid var(--line);border-radius:12px;padding:16px;min-height:120px}
+  .atkdetail .adt{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--pink);margin-bottom:8px}
+  .atkdetail .row{font-size:13.5px;color:var(--muted);margin-top:8px}
+  .atkdetail .row b{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan);display:block;margin-bottom:2px}
+  .atkdetail .row.def b{color:var(--green)} .atkdetail .row.tool b{color:var(--amber)}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:22%;left:0;right:0"></div>
+  <div class="trace" style="top:52%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:78%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · active directory (intro)</div>
+    <h1>Active Directory:<br/>the <span class="em">keys to the kingdom</span></h1>
+    <p>Active Directory is the phone book <em>and</em> the security guard for almost every corporate network — it decides who every user is and what they can touch. Compromise it and you own the whole company. That's why it's the #1 target in enterprise attacks.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · intro level · every panel is live</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">Structure &amp; objects</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Kerberos authentication</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Attack paths</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">AD attacks &amp; defenses</div></a>
+    </nav>
+    <div class="cue">log on ↓</div>
+  </header>
+
+  <!-- §1 structure -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> the org chart of the network</div>
+    <h2>Structure &amp; objects</h2>
+    <p class="lead">AD organises a company into a hierarchy. A <b>forest</b> is the top-level security boundary; inside it are <b>domains</b>; inside those, <b>Organizational Units (OUs)</b> group the <b>objects</b> — users, computers, and groups. The <b>Domain Controller</b> is the server running it all. Click any part to learn it.</p>
+    <div class="stage">
+      <div class="adstruct">
+        <div class="adtree" id="adtree"></div>
+        <div class="addetail" id="addetail">Click an item on the left to explore the structure.</div>
+      </div>
+    </div>
+    <div class="why red"><b>why it's the top target</b>Everything hangs off the Domain Controller — it holds the <b>NTDS.dit</b> database with <em>every</em> user's password hash. Own a DC and you own every account. That's why attackers' entire goal in a corporate breach is usually "get to Domain Admin."</div>
+    <p class="note">// AD is queried with LDAP, depends on DNS to find services, and pushes settings via Group Policy (GPO) — all explained in the tree above.</p>
+  </section>
+
+  <!-- §2 kerberos -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> how you prove who you are</div>
+    <h2>Kerberos authentication</h2>
+    <p class="lead">When you log into a domain, you don't send your password to every server. Instead <b>Kerberos</b> uses <b>tickets</b>. You prove yourself once to the <b>KDC</b> (the Domain Controller) and get a <b>TGT</b> (Ticket-Granting Ticket); you then trade that for <b>service tickets</b> to access specific resources. Step through it below.</p>
+    <div class="stage">
+      <div class="kerb">
+        <div class="kactor">
+          <div class="kbox" id="kClient"><div class="kn">👤 Client</div><div class="kd">alice</div></div>
+          <div class="kbox" id="kKDC"><div class="kn">🏛️ KDC</div><div class="kd">Domain Controller</div></div>
+          <div class="kbox" id="kSvc"><div class="kn">🖥️ Service</div><div class="kd">FileServer</div></div>
+        </div>
+        <div class="kstep" id="ks0"><span class="tk">1. AS-REQ →</span> Client proves identity to the KDC (timestamp encrypted with her password hash)</div>
+        <div class="kstep" id="ks1"><span class="tk">← 2. AS-REP</span> KDC returns a <b>TGT</b> — an "I'm authenticated" pass, sealed with the secret krbtgt key</div>
+        <div class="kstep" id="ks2"><span class="tk">3. TGS-REQ →</span> Client shows the TGT and asks: "let me reach FileServer"</div>
+        <div class="kstep" id="ks3"><span class="tk">← 4. TGS-REP</span> KDC returns a <b>Service Ticket</b> for FileServer</div>
+        <div class="kstep" id="ks4"><span class="tk">5. AP-REQ →</span> Client presents the Service Ticket to FileServer → <b>access granted</b></div>
+      </div>
+      <div class="kmsg" id="kmsg">Press play to watch alice authenticate and reach the file server.</div>
+      <div class="ctrls">
+        <button class="btn solid" id="kPlay">▶ play the ticket exchange</button>
+        <button class="btn" id="kReset">reset</button>
+      </div>
+    </div>
+    <div class="why red"><b>attack &amp; defense</b>Tickets are exactly what attackers steal or forge. <b>Kerberoasting</b> requests service tickets and cracks them offline for the service account's password. A <b>Golden Ticket</b> forges an unlimited TGT using the stolen <code>krbtgt</code> key — total domain control. (The older <b>NTLM</b> protocol, still around as fallback, enables Pass-the-Hash.) Defenders watch Kerberos events <b>4768/4769</b> and use strong service-account passwords.</div>
+    <p class="note">// TGT = your master pass · Service Ticket = a day-pass for one resource · KDC = the ticket office, run by the Domain Controller.</p>
+  </section>
+
+  <!-- §3 attack paths -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> from nobody to domain admin</div>
+    <h2>Attack paths</h2>
+    <p class="lead">Attackers rarely go straight to Domain Admin. They follow a <b>path</b> — a chain of "this user is a member of that group, which has admin rights on that machine, where an admin is logged in…" — hopping link by link. Trace one below.</p>
+    <div class="stage">
+      <div class="graph" id="graph">
+        <div class="gnode start" id="g0"><div class="gt">👤 alice</div><div class="gs">a normal, low-privilege user (the foothold)</div></div>
+        <div class="gedge" id="e0">↓ is a <b>member of</b></div>
+        <div class="gnode" id="g1"><div class="gt">👥 IT-Support group</div><div class="gs">a group alice belongs to</div></div>
+        <div class="gedge" id="e1">↓ has <b>local admin on</b></div>
+        <div class="gnode" id="g2"><div class="gt">🖥️ SVR-01</div><div class="gs">a server IT-Support can administer</div></div>
+        <div class="gedge" id="e2">↓ where a <b>session exists for</b></div>
+        <div class="gnode" id="g3"><div class="gt">👤 bob (Domain Admin)</div><div class="gs">bob is logged in — his token can be stolen</div></div>
+        <div class="gedge" id="e3">↓ is a <b>member of</b></div>
+        <div class="gnode end" id="g4"><div class="gt">👑 Domain Admins → the Domain</div><div class="gs">game over — full control</div></div>
+      </div>
+      <div class="gmsg" id="gmsg">Press "trace the path" to follow the chain from a normal user to full domain control.</div>
+      <div class="ctrls">
+        <button class="btn solid" id="gPlay">▶ trace the attack path</button>
+        <button class="btn" id="gReset">reset</button>
+      </div>
+    </div>
+    <div class="why"><b>the key tool — BloodHound</b>This graph is exactly what <b>BloodHound</b> does: it collects AD data (users, groups, sessions, admin rights) and draws it as a graph, then finds the <em>shortest path</em> from any user to Domain Admin. Attackers use it to plan; defenders use it to find and cut these paths <em>before</em> attackers walk them.</div>
+    <p class="note">// each hop is a real technique: group membership, local-admin rights, session/token theft, lateral movement.</p>
+  </section>
+
+  <!-- §4 attacks & defenses -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> the playbook</div>
+    <h2>AD attacks &amp; defenses</h2>
+    <p class="lead">A handful of attacks come up again and again in Active Directory. Click each to see how it works, the tool behind it, and how defenders stop it — the exact vocabulary of enterprise security.</p>
+    <div class="stage">
+      <div class="atkcards" id="atkcards"></div>
+      <div class="atkdetail" id="atkdetail">Click an attack above to break it down.</div>
+    </div>
+    <div class="why"><b>the defender's side</b>Beyond the per-attack defenses: <b>tiering</b> (keep admin accounts off normal workstations), <b>LAPS</b> (a unique local-admin password per machine), disabling legacy <b>NTLM</b>, and <b>Microsoft Defender for Identity</b> — which watches Domain Controller traffic and flags exactly these techniques in real time.</div>
+    <p class="note">// tools that keep appearing: BloodHound (map paths), Mimikatz (dump credentials/tickets), Responder (poison &amp; capture), Rubeus (Kerberos abuse).</p>
+  </section>
+
+  <footer>
+    <div class="fmono">active directory — win it, and you win the network.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 structure ===== */
+(function(){
+  const NODES=[
+    {p:"🌲 Forest: contoso.com",d:0,w:"The top-level container and the true security boundary in AD. A forest holds one or more domains that share a common schema and configuration.",sec:"The forest — not the domain — is the real security boundary. Compromise anywhere in a forest can often reach everywhere in it."},
+    {p:"🏢 Domain: contoso.com",d:1,w:"A management boundary for a set of users, computers and groups, all sharing one database and authentication. A forest can contain a tree of several domains.",sec:"The unit attackers aim to take over. 'Domain Admin' = control of everything in the domain."},
+    {p:"🏛️ Domain Controller (DC)",d:2,star:1,w:"The server that runs Active Directory — it authenticates logons and holds the directory database (NTDS.dit).",sec:"⭐ The crown jewel. It stores every account's password hash in NTDS.dit. Owning a DC = owning the domain."},
+    {p:"🗂️ Organizational Units (OUs)",d:2,w:"Folders that group objects (e.g. an OU per department) so admins can manage and apply policy to them together.",sec:"How Group Policy is targeted; misconfigured OU permissions can let a user modify objects they shouldn't."},
+    {p:"👤 User / 💻 Computer objects",d:3,w:"The accounts for people and machines. Each has attributes (name, group memberships, etc.) and its own password.",sec:"Computer accounts have passwords too — abusing them is a real attack technique."},
+    {p:"👥 Groups",d:3,star:1,w:"Collections of accounts, used to grant permissions in bulk. Key ones: Domain Users (everyone), Domain Admins and Enterprise Admins (full control).",sec:"⭐ Group membership = privilege. Getting into Domain Admins is the usual end-goal; attackers map who's in what."},
+    {p:"📜 Group Policy (GPO)",d:2,w:"Central rules pushed to users/computers — password policy, software, security settings. Stored in SYSVOL, a share on every DC.",sec:"Attackers who can edit a GPO can push malware to every machine it applies to; SYSVOL is checked for stored passwords."},
+    {p:"🔎 LDAP + DNS + Global Catalog",d:2,w:"LDAP is the protocol used to query AD; DNS is how clients find Domain Controllers; the Global Catalog is a forest-wide index for fast searches.",sec:"LDAP queries are how both admins and attackers enumerate the whole directory (users, groups, computers)."},
+    {p:"🤝 Trusts",d:1,w:"Relationships that let users in one domain/forest access resources in another.",sec:"A misconfigured or over-broad trust can let an attacker hop from a compromised domain into a trusted one."},
+  ];
+  const tree=$("#adtree"),det=$("#addetail");
+  NODES.forEach(n=>{const d=document.createElement("div");d.className="anode d"+n.d;
+    d.innerHTML=(n.star?'<span class="star">★</span> ':'')+n.p;
+    d.addEventListener("click",()=>{$$(".anode").forEach(x=>x.classList.remove("sel"));d.classList.add("sel");
+      det.innerHTML=`<div class="ap">${n.p}</div><div class="aw">${n.w}</div><div class="asec"><b>security relevance</b>${n.sec}</div>`;});
+    tree.appendChild(d);});
+})();
+
+/* ===== §2 kerberos ===== */
+(function(){
+  const steps=[$("#ks0"),$("#ks1"),$("#ks2"),$("#ks3"),$("#ks4")];
+  const cl=$("#kClient"),kdc=$("#kKDC"),svc=$("#kSvc"),msg=$("#kmsg");
+  const lit=[["cl","kdc"],["kdc","cl"],["cl","kdc"],["kdc","cl"],["cl","svc"]];
+  const notes=[
+    "alice sends a request to the KDC, proving her identity with something encrypted using her password hash.",
+    "The KDC issues a TGT — think of it as a wristband saying 'she's authenticated', sealed so only the KDC can read it.",
+    "alice presents her TGT and asks for access to a specific service: the file server.",
+    "The KDC hands back a Service Ticket good only for the file server.",
+    "alice shows the Service Ticket to the file server, which trusts it and grants access. Her password never touched the file server."
+  ];
+  let i=-1,timer=null;
+  function clear(){steps.forEach(s=>s.classList.remove("lit"));[cl,kdc,svc].forEach(b=>b.classList.remove("lit"));}
+  function show(n){clear();steps[n].classList.add("lit");
+    const map={cl,kdc,svc};lit[n].forEach(k=>map[k].classList.add("lit"));msg.textContent=notes[n];}
+  function play(){if(timer)return;i=-1;const t=setInterval(()=>{i++;if(i>=steps.length){clearInterval(t);timer=null;msg.innerHTML="✅ Done. alice proved herself <b>once</b> to the KDC, then used tickets everywhere — the core of Kerberos.";return;}show(i);},1100);timer=t;}
+  $("#kPlay").addEventListener("click",play);
+  $("#kReset").addEventListener("click",()=>{if(timer){clearInterval(timer);timer=null;}clear();msg.textContent="Press play to watch alice authenticate and reach the file server.";});
+})();
+
+/* ===== §3 attack path ===== */
+(function(){
+  const nodes=["g0","g1","g2","g3","g4"].map(id=>$("#"+id));
+  const edges=["e0","e1","e2","e3"].map(id=>$("#"+id));
+  const msgs=[
+    "Foothold: the attacker has phished alice — an ordinary user with no special rights.",
+    "alice belongs to the IT-Support group (visible by querying AD).",
+    "That group has local-admin rights on server SVR-01 — so the attacker now controls SVR-01.",
+    "Domain Admin 'bob' has an active session on SVR-01 — the attacker steals his token/credentials.",
+    "Using bob's access, the attacker is now effectively a Domain Admin. Full control of the domain. 🚨"
+  ];
+  let timer=null;
+  function clearAll(){nodes.forEach(n=>n.classList.remove("lit"));edges.forEach(e=>e.classList.remove("lit"));}
+  $("#gPlay").addEventListener("click",()=>{
+    if(timer)return; clearAll();let i=0;
+    nodes[0].classList.add("lit");$("#gmsg").textContent=msgs[0];
+    timer=setInterval(()=>{
+      if(i>=edges.length){clearInterval(timer);timer=null;
+        $("#gmsg").innerHTML="🚨 Five hops from a phished normal user to <b>full domain control</b> — no exploit needed, just chained permissions.";return;}
+      edges[i].classList.add("lit");nodes[i+1].classList.add("lit");$("#gmsg").textContent=msgs[i+1];i++;
+    },1100);
+  });
+  $("#gReset").addEventListener("click",()=>{if(timer){clearInterval(timer);timer=null;}clearAll();$("#gmsg").textContent='Press "trace the path" to follow the chain from a normal user to full domain control.';});
+})();
+
+/* ===== §4 attacks & defenses ===== */
+(function(){
+  const ATK=[
+    {n:"Kerberoasting",s:"crack service accounts",how:"Any user can request a Kerberos service ticket for a service account. That ticket is encrypted with the account's password — so the attacker takes it offline and cracks weak passwords at leisure.",tool:"Rubeus / Impacket to request; Hashcat to crack.",def:"Long, random service-account passwords (or gMSA); alert on unusual ticket requests (Event 4769)."},
+    {n:"Pass-the-Hash",s:"reuse a stolen hash",how:"With NTLM, the password's HASH is enough to authenticate — you never need the plaintext. Steal a hash from memory and 'pass' it to log in as that user elsewhere.",tool:"Mimikatz to dump hashes; Impacket to use them.",def:"Disable NTLM where possible; Credential Guard; limit where admins log in (tiering)."},
+    {n:"Golden Ticket",s:"forge the master key",how:"If the attacker steals the domain's krbtgt key, they can forge a TGT for ANY user with ANY privileges, valid for years — undetectable by normal means.",tool:"Mimikatz.",def:"Protect DCs; rotate the krbtgt password (twice) if compromise is suspected."},
+    {n:"DCSync",s:"impersonate a DC",how:"An account with the right rights can ASK a Domain Controller to replicate password data — pulling every hash, including krbtgt, without touching the DC's disk.",tool:"Mimikatz / Impacket secretsdump.",def:"Restrict replication rights to actual DCs; alert on replication from non-DC hosts."},
+    {n:"LLMNR/NBT-NS Poisoning",s:"steal creds on the LAN",how:"When a Windows machine mistypes a name, it broadcasts asking 'who is this?'. The attacker answers 'me!', and the victim sends its credentials (hash) straight to the attacker.",tool:"Responder.",def:"Disable LLMNR and NBT-NS via Group Policy; enable SMB signing."},
+  ];
+  const cards=$("#atkcards"),det=$("#atkdetail");
+  ATK.forEach(a=>{const c=document.createElement("div");c.className="atkcard";
+    c.innerHTML=`<div class="acn">${a.n}</div><div class="acs">${a.s}</div>`;
+    c.addEventListener("click",()=>{$$(".atkcard").forEach(x=>x.classList.remove("sel"));c.classList.add("sel");
+      det.innerHTML=`<div class="adt">${a.n}</div><div class="row"><b>how it works</b>${a.how}</div><div class="row tool"><b>tool used</b>${a.tool}</div><div class="row def"><b>defense</b>${a.def}</div>`;});
+    cards.appendChild(c);});
+})();
+</script>
+</body>
+</html>
