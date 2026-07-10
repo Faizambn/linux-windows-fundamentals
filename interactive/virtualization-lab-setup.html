@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Virtualization & Lab Setup — build a safe place to break things</title>
+<meta name="description" content="Interactive guide to virtualization and building a security lab: hypervisor types, VM anatomy, network modes (NAT/Bridged/Host-only/Internal), and snapshots for safe malware analysis. Built by Faiza while learning." />
+<style>
+  :root{
+    --ink:#070a13; --panel:#0f1522; --panel-2:#0b101c; --line:#1d2740;
+    --text:#e9eefb; --muted:#8894b2; --dim:#57648a;
+    --cyan:#22d3ee; --violet:#a78bfa; --amber:#fbbf24; --green:#34d399; --pink:#fb7185; --slate:#94a3b8; --red:#f87171; --blue:#60a5fa;
+    --gc:0 0 14px rgba(34,211,238,.5); --ga:0 0 14px rgba(251,191,36,.5); --gv:0 0 14px rgba(167,139,250,.5); --gg:0 0 14px rgba(52,211,153,.5); --gr:0 0 14px rgba(248,113,113,.5);
+    --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+    --sans:system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+  .field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .field .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(34,211,238,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.045) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%);-webkit-mask-image:radial-gradient(circle at 50% 25%,#000,transparent 78%)}
+  .trace{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.22),transparent);overflow:hidden}
+  .trace::after{content:"";position:absolute;top:-1px;left:0;width:60px;height:3px;border-radius:3px;background:var(--cyan);box-shadow:var(--gc);animation:run 5.5s linear infinite}
+  @keyframes run{0%{left:-60px;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:100%;opacity:0}}
+  .scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.013) 0 1px,transparent 1px 3px)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+
+  .hero{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:60px 0}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--cyan);margin-bottom:22px;opacity:0;animation:fadeUp .8s .1s forwards}
+  .hero h1{font-family:var(--mono);font-weight:700;font-size:clamp(30px,6.5vw,60px);line-height:1.03;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s .25s forwards}
+  .hero h1 .em{background:linear-gradient(105deg,var(--cyan),var(--green) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:clamp(16px,2.3vw,21px);margin-top:24px;max-width:600px;opacity:0;animation:fadeUp .8s .45s forwards}
+  .byline{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:30px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;opacity:0;animation:fadeUp .8s .65s forwards}
+  .byline .pulse{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:var(--gc);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .toc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:42px;opacity:0;animation:fadeUp .8s .85s forwards}
+  @media(max-width:680px){.toc{grid-template-columns:repeat(2,1fr)}}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;text-decoration:none;color:var(--muted);transition:.16s}
+  .tcard:hover{border-color:var(--cyan);color:var(--text);transform:translateY(-2px);box-shadow:var(--gc)}
+  .tcard .tn{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+  .tcard .tt{font-size:12.5px;margin-top:5px;font-weight:600;line-height:1.3}
+  .cue{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:36px;animation:bob 2.4s infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+
+  section{padding:70px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--violet);text-transform:uppercase;margin-bottom:13px}
+  .eyebrow .no{color:var(--cyan)}
+  h2{font-family:var(--mono);font-size:clamp(23px,4.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .lead{color:var(--muted);font-size:16.5px;margin-top:15px;max-width:660px}
+  .lead b{color:var(--text)}
+  .note{color:var(--dim);font-size:13.5px;font-family:var(--mono);margin-top:18px;line-height:1.75}
+  .why{margin-top:20px;background:linear-gradient(160deg,rgba(52,211,153,.07),rgba(34,211,238,.04));border:1px solid var(--line);border-left:2px solid var(--green);border-radius:10px;padding:15px 17px;font-size:14px;color:var(--muted)}
+  .why b{color:var(--green);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .why.red{background:linear-gradient(160deg,rgba(248,113,113,.08),rgba(251,113,133,.04));border-left-color:var(--red)}
+  .why.red b{color:var(--red)}
+  .stage{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .btn{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:1px solid var(--line);padding:10px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.solid{background:linear-gradient(100deg,var(--cyan),var(--green));color:var(--ink);border-color:transparent;font-weight:700}
+  .btn.danger{border-color:var(--red);color:var(--red)} .btn.danger:hover{background:rgba(248,113,113,.1)}
+  .ctrls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+  .center{text-align:center}
+  code{font-family:var(--mono);background:rgba(255,255,255,.05);padding:1px 5px;border-radius:4px;font-size:.9em}
+  /* §1 hypervisor types */
+  .hyptoggle{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:max-content;margin:0 auto 20px}
+  .hyptoggle button{font-family:var(--mono);font-size:13px;background:transparent;color:var(--muted);border:none;padding:11px 20px;cursor:pointer;transition:.15s}
+  .hyptoggle button.on{background:var(--cyan);color:var(--ink);font-weight:700}
+  .hstack{max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
+  .hlayer{border:1px solid var(--line);border-radius:10px;padding:13px;text-align:center;font-family:var(--mono);font-size:13px;transition:.3s}
+  .hlayer .hn{font-weight:700}.hlayer .hd{font-size:11px;color:var(--muted);margin-top:2px}
+  .hlayer.hw{background:rgba(148,163,184,.08);border-color:var(--slate);color:var(--slate)}
+  .hlayer.hyp{background:rgba(34,211,238,.08);border-color:var(--cyan);color:var(--cyan)}
+  .hlayer.os{background:rgba(251,191,36,.07);border-color:var(--amber);color:var(--amber)}
+  .hlayer.vm{background:rgba(167,139,250,.08);border-color:var(--violet);color:var(--violet)}
+  .hlayer.vmrow{display:flex;gap:6px}.hlayer.vmrow>div{flex:1;border:1px solid var(--violet);border-radius:7px;padding:8px;font-size:11px}
+  .hexpl{margin-top:18px;font-size:14px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px}
+
+  /* §2 vm anatomy */
+  .anat{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:600px){.anat{grid-template-columns:1fr}}
+  .acard{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;transition:.15s}
+  .acard:hover{border-color:var(--cyan)}.acard.sel{border-color:var(--cyan);box-shadow:var(--gc)}
+  .acard .at{font-family:var(--mono);font-weight:700;font-size:13.5px;color:var(--cyan)}
+  .acard .ad{font-size:12.5px;color:var(--muted);margin-top:5px}
+  .cvm{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:600px){.cvm{grid-template-columns:1fr}}
+  .cvmbox{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--panel-2)}
+  .cvmbox .ct{font-family:var(--mono);font-weight:700;font-size:14px;margin-bottom:8px}
+  .cvmbox.vm .ct{color:var(--violet)} .cvmbox.ct2 .ct{color:var(--green)}
+  .cvmbox ul{list-style:none;font-size:12.5px;color:var(--muted)}
+  .cvmbox li{padding:3px 0;padding-left:16px;position:relative}
+  .cvmbox li::before{content:"›";position:absolute;left:0;color:var(--dim)}
+
+  /* §3 network modes */
+  .netsel{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+  .netsel button{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);padding:10px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+  .netsel button:hover{color:var(--text)}
+  .netsel button.on{background:var(--cyan);color:var(--ink);border-color:transparent;font-weight:700}
+  .reach{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+  @media(max-width:600px){.reach{grid-template-columns:repeat(2,1fr)}}
+  .rtile{border:1px solid var(--line);border-radius:11px;padding:14px 10px;text-align:center;background:var(--panel-2);transition:.3s}
+  .rtile .ri{font-size:24px}
+  .rtile .rn{font-family:var(--mono);font-size:12px;margin-top:6px;color:var(--muted)}
+  .rtile .rv{font-family:var(--mono);font-size:11px;margin-top:6px;font-weight:700}
+  .rtile.yes{border-color:var(--green)} .rtile.yes .rv{color:var(--green)}
+  .rtile.no{opacity:.5} .rtile.no .rv{color:var(--red)}
+  .netexpl{margin-top:18px;font-size:14px;color:var(--muted);background:#05070d;border:1px solid var(--line);border-radius:10px;padding:14px;min-height:60px}
+  .netexpl b{color:var(--cyan)}
+  .netexpl .use{color:var(--amber)}
+
+  /* §4 lab + snapshots */
+  .lab{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+  @media(max-width:600px){.lab{grid-template-columns:1fr}}
+  .labvm{border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;background:var(--panel-2);transition:.3s}
+  .labvm .lvi{font-size:26px}.labvm .lvn{font-family:var(--mono);font-weight:700;font-size:13px;margin-top:6px}
+  .labvm .lvd{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .labvm.attacker{border-color:var(--red)}.labvm.attacker .lvn{color:var(--pink)}
+  .labvm.victim{border-color:var(--amber)}.labvm.victim .lvn{color:var(--amber)}
+  .labnet{text-align:center;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:18px}
+  .snapbox{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel-2);text-align:center}
+  .vmstate{font-family:var(--mono);font-size:15px;font-weight:700;margin:12px 0;padding:14px;border-radius:10px;transition:.4s}
+  .vmstate.clean{background:rgba(52,211,153,.08);border:1px solid var(--green);color:var(--green)}
+  .vmstate.infected{background:rgba(248,113,113,.1);border:1px solid var(--red);color:var(--pink)}
+  .snapinfo{font-size:12.5px;font-family:var(--mono);color:var(--dim);min-height:20px}
+
+  footer{padding:60px 0 90px;border-top:1px solid var(--line);text-align:center}
+  footer .fmono{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  footer .sig{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:14px}
+  footer a{color:var(--cyan);text-decoration:none}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}.trace::after{display:none}}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="field"><div class="grid"></div>
+  <div class="trace" style="top:22%;left:0;right:0"></div>
+  <div class="trace" style="top:52%;left:0;right:0;animation-delay:1.8s"></div>
+  <div class="trace" style="top:78%;left:0;right:0;animation-delay:3s"></div>
+</div>
+<div class="scan"></div>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">module 01 · virtualization &amp; lab setup</div>
+    <h1>A safe place<br/>to <span class="em">break things</span></h1>
+    <p>You can't learn security by attacking real systems — that's illegal and dangerous. Virtualization lets you run whole computers <em>inside</em> your computer, so you can detonate malware, run exploits, and make mistakes in a sealed sandbox you can reset in seconds.</p>
+    <div class="byline"><span class="pulse"></span> built by Faiza while learning · every panel is live</div>
+    <nav class="toc">
+      <a class="tcard" href="#s1"><div class="tn">01</div><div class="tt">Hypervisor types</div></a>
+      <a class="tcard" href="#s2"><div class="tn">02</div><div class="tt">Anatomy of a VM</div></a>
+      <a class="tcard" href="#s3"><div class="tn">03</div><div class="tt">Network modes</div></a>
+      <a class="tcard" href="#s4"><div class="tn">04</div><div class="tt">Build a lab + snapshots</div></a>
+    </nav>
+    <div class="cue">power on ↓</div>
+  </header>
+
+  <!-- §1 hypervisor -->
+  <section id="s1">
+    <div class="eyebrow"><span class="no">01</span> the magic underneath</div>
+    <h2>What virtualization is</h2>
+    <p class="lead">A <b>hypervisor</b> is software that carves one physical machine into several <b>virtual machines (VMs)</b> — each thinking it's a real computer with its own OS. There are two types, and the difference is <em>where the hypervisor sits</em>. Toggle between them.</p>
+    <div class="stage">
+      <div class="hyptoggle"><button id="t1">Type 1 (bare-metal)</button><button id="t2" class="on">Type 2 (hosted)</button></div>
+      <div class="hstack" id="hstack"></div>
+      <div class="hexpl" id="hexpl"></div>
+    </div>
+    <div class="why"><b>which one you'll use</b>As a learner you'll use a <b>Type 2</b> hypervisor — <b>VirtualBox</b> (free) or VMware Workstation — because it installs like any app on top of your existing Windows/Mac. <b>Type 1</b> (VMware ESXi, Microsoft Hyper-V, Proxmox) runs directly on server hardware and powers data centres and the cloud.</div>
+    <p class="note">// your laptop's OS = the "host"; each VM inside it = a "guest".</p>
+  </section>
+
+  <!-- §2 anatomy -->
+  <section id="s2">
+    <div class="eyebrow"><span class="no">02</span> a computer inside a file</div>
+    <h2>Anatomy of a VM</h2>
+    <p class="lead">A VM is just <b>virtual hardware</b>: slices of your real CPU, RAM, and disk, presented to a guest OS as if they were physical. The whole machine is really a few files on your disk — which is what makes VMs so easy to copy, move, and reset. Click each part.</p>
+    <div class="stage">
+      <div class="anat" id="anat"></div>
+      <div class="cvm">
+        <div class="cvmbox vm"><div class="ct">🖥️ Virtual Machine</div><ul>
+          <li>Runs a <b>full guest OS</b> (its own kernel)</li>
+          <li>Strong isolation from the host</li>
+          <li>Heavy — GBs of RAM/disk each</li>
+          <li>Best for: whole systems, malware analysis</li></ul></div>
+        <div class="cvmbox ct2"><div class="ct">📦 Container (e.g. Docker)</div><ul>
+          <li>Shares the host's kernel</li>
+          <li>Lighter isolation, starts in seconds</li>
+          <li>Tiny — ships just the app + its deps</li>
+          <li>Best for: running apps/services fast</li></ul></div>
+      </div>
+    </div>
+    <div class="why red"><b>the isolation caveat</b>VMs are isolated, but not perfectly — <b>VM escape</b> (malware breaking out of the guest onto the host) is a real, if rare, attack class. Containers share the host kernel, so they're <em>weaker</em> boundaries than VMs. For detonating real malware, a VM with isolated networking + snapshots is the safe choice.</div>
+    <p class="note">// a VM's disk is a file (.vdi / .vmdk). Copy it = clone the whole machine.</p>
+  </section>
+
+  <!-- §3 network modes -->
+  <section id="s3">
+    <div class="eyebrow"><span class="no">03</span> the part everyone gets wrong</div>
+    <h2>VM network modes</h2>
+    <p class="lead">How a VM connects to the world is the single most important — and most confused — lab setting. Pick the wrong mode and either your lab won't work, or (worse) malware you're studying escapes onto your real network. Choose a mode and see exactly what the VM can reach.</p>
+    <div class="stage">
+      <div class="netsel" id="netsel"></div>
+      <div class="reach" id="reach"></div>
+      <div class="netexpl" id="netexpl"></div>
+    </div>
+    <div class="why red"><b>the golden rule of malware analysis</b>When studying malware, use <b>Internal</b> or <b>Host-only</b> networking so it's sealed off from the internet and your real LAN — never <b>Bridged</b>, which puts the infected VM directly on your home network where it can spread. Flip to NAT only briefly for updates, then seal it back up.</div>
+    <p class="note">// in VirtualBox this is Settings → Network → "Attached to:" — the dropdown that decides everything.</p>
+  </section>
+
+  <!-- §4 lab + snapshots -->
+  <section id="s4">
+    <div class="eyebrow"><span class="no">04</span> your training ground</div>
+    <h2>Build a lab + snapshots</h2>
+    <p class="lead">A classic starter lab: an <b>attacker VM</b> (Kali Linux) and one or more <b>victim VMs</b> (a Windows box, or a deliberately-vulnerable machine like Metasploitable), all on an <b>isolated internal network</b> so they can reach each other but nothing else.</p>
+    <div class="stage">
+      <div class="lab">
+        <div class="labvm attacker"><div class="lvi">🗡️</div><div class="lvn">Kali Linux</div><div class="lvd">your attacker box — the tools</div></div>
+        <div class="labvm victim"><div class="lvi">🪟</div><div class="lvn">Windows victim</div><div class="lvd">a target to practice on</div></div>
+        <div class="labvm victim"><div class="lvi">🐞</div><div class="lvn">Metasploitable</div><div class="lvd">intentionally vulnerable</div></div>
+      </div>
+      <div class="labnet">— all connected on one <b>Internal Network</b> · sealed from the internet &amp; your real LAN —</div>
+      <div class="snapbox">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">Snapshots — the time machine</div>
+        <div class="vmstate clean" id="vmState">🟢 VM state: clean &amp; healthy</div>
+        <div class="snapinfo" id="snapInfo">Take a snapshot before you do anything risky.</div>
+        <div class="ctrls">
+          <button class="btn solid" id="snapBtn">📸 take snapshot</button>
+          <button class="btn danger" id="malBtn">💥 detonate malware</button>
+          <button class="btn" id="revertBtn">⏪ revert to snapshot</button>
+        </div>
+      </div>
+    </div>
+    <div class="why"><b>why snapshots are a superpower</b>A <b>snapshot</b> saves the VM's exact state. Take one, detonate malware to study it, observe the damage — then <b>revert</b> and the VM is instantly pristine again, as if nothing happened. This is what makes safe, repeatable malware analysis possible. No cloud, no internet needed — perfect for a local lab.</div>
+    <p class="note">// no powerful PC? Cloud ranges like TryHackMe &amp; Hack The Box give you ready-made labs in the browser.</p>
+  </section>
+
+  <footer>
+    <div class="fmono">virtualization — where you learn to attack and defend, safely.</div>
+    <div class="sig">— a learning artifact · Faiza · <a href="https://github.com/Faizambn">github.com/Faizambn</a></div>
+  </footer>
+
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ===== §1 hypervisor types ===== */
+(function(){
+  const stack=$("#hstack"),expl=$("#hexpl"),t1=$("#t1"),t2=$("#t2");
+  const TYPE1=[
+    {c:"vm vmrow",h:['<b>VM</b><br>Guest OS','<b>VM</b><br>Guest OS','<b>VM</b><br>Guest OS']},
+    {c:"hyp",n:"Hypervisor (Type 1)",d:"runs directly on the hardware"},
+    {c:"hw",n:"Physical Hardware",d:"the bare server"},
+  ];
+  const TYPE2=[
+    {c:"vm vmrow",h:['<b>VM</b><br>Guest OS','<b>VM</b><br>Guest OS']},
+    {c:"hyp",n:"Hypervisor (Type 2)",d:"VirtualBox / VMware Workstation — an app"},
+    {c:"os",n:"Host OS",d:"your Windows / macOS / Linux"},
+    {c:"hw",n:"Physical Hardware",d:"your laptop"},
+  ];
+  function draw(rows){
+    stack.innerHTML="";
+    rows.forEach(r=>{const d=document.createElement("div");d.className="hlayer "+r.c;
+      if(r.h){d.innerHTML=r.h.map(x=>`<div>${x}</div>`).join("");}
+      else{d.innerHTML=`<div class="hn">${r.n}</div><div class="hd">${r.d}</div>`;}
+      stack.appendChild(d);});
+  }
+  function set(is1){
+    t1.classList.toggle("on",is1);t2.classList.toggle("on",!is1);
+    draw(is1?TYPE1:TYPE2);
+    expl.innerHTML=is1
+      ? "<b style='color:var(--cyan)'>Type 1 (bare-metal):</b> the hypervisor IS the operating system — it sits straight on the hardware with no host OS beneath it. Faster and more secure, so it runs data centres and the cloud (ESXi, Hyper-V, Proxmox)."
+      : "<b style='color:var(--cyan)'>Type 2 (hosted):</b> the hypervisor is an ordinary app running on top of your normal OS. Slower, but dead simple to install — this is what you'll use to learn (VirtualBox, VMware Workstation).";
+  }
+  t1.addEventListener("click",()=>set(true));t2.addEventListener("click",()=>set(false));set(false);
+})();
+
+/* ===== §2 anatomy ===== */
+(function(){
+  const PARTS=[
+    {t:"🧠 Virtual CPU (vCPU)",d:"A share of your real CPU cores, assigned to the VM. Give a VM 2 vCPUs and it sees a 2-core machine."},
+    {t:"💾 Virtual RAM",d:"Memory carved from your host's RAM. This is the main limit — a 16GB laptop can only run so many VMs at once."},
+    {t:"🗄️ Virtual Disk (.vdi/.vmdk)",d:"A single file on your real disk that the VM treats as a whole hard drive. Copy it and you've cloned the machine."},
+    {t:"🌐 Virtual NIC",d:"A virtual network card. Its mode (next section) decides what the VM can reach — the most important setting in a lab."},
+  ];
+  const host=$("#anat");
+  PARTS.forEach(p=>{const d=document.createElement("div");d.className="acard";
+    d.innerHTML=`<div class="at">${p.t}</div><div class="ad">${p.d}</div>`;
+    d.addEventListener("click",()=>{$$(".acard").forEach(x=>x.classList.remove("sel"));d.classList.add("sel");});
+    host.appendChild(d);});
+})();
+
+/* ===== §3 network modes ===== */
+(function(){
+  // reach: [internet, host, otherVMs, yourLAN]
+  const MODES={
+    "NAT":{r:[1,0,0,0],e:"<b>NAT</b> — the VM shares your host's internet connection through a private address, hidden behind the host (like your phone behind a home router). <span class='use'>Use for: giving a VM internet to download updates/tools, while staying hidden from your LAN.</span>"},
+    "Bridged":{r:[1,1,1,1],e:"<b>Bridged</b> — the VM appears as its own real device on your physical network, with its own LAN IP. Reaches everything. <span class='use'>Use for: when a VM must act like a real machine on the network. ⚠ Least isolated — never for malware.</span>"},
+    "Host-only":{r:[0,1,0,0],e:"<b>Host-only</b> — a private link between the VM and your host only. No internet, no LAN. <span class='use'>Use for: a controlled channel between host and VM with no outside exposure.</span>"},
+    "Internal":{r:[0,0,1,0],e:"<b>Internal</b> — a private switch connecting VMs to each other and nothing else. Not even the host. <span class='use'>Use for: the safest malware lab — VMs attack each other, fully sealed off.</span>"},
+  };
+  const TILES=[{i:"🌍",n:"Internet"},{i:"💻",n:"Your Host"},{i:"🖥️",n:"Other VMs"},{i:"🏠",n:"Your LAN"}];
+  const sel=$("#netsel"),reach=$("#reach"),expl=$("#netexpl");
+  Object.keys(MODES).forEach((m,i)=>{const b=document.createElement("button");b.textContent=m;if(i===0)b.classList.add("on");
+    b.addEventListener("click",()=>{$$("#netsel button").forEach(x=>x.classList.remove("on"));b.classList.add("on");show(m);});
+    sel.appendChild(b);});
+  function show(m){
+    const r=MODES[m].r;reach.innerHTML="";
+    TILES.forEach((t,i)=>{const d=document.createElement("div");d.className="rtile "+(r[i]?"yes":"no");
+      d.innerHTML=`<div class="ri">${t.i}</div><div class="rn">${t.n}</div><div class="rv">${r[i]?"✓ reachable":"✕ blocked"}</div>`;
+      reach.appendChild(d);});
+    expl.innerHTML=MODES[m].e;
+  }
+  show("NAT");
+})();
+
+/* ===== §4 snapshots ===== */
+(function(){
+  const state=$("#vmState"),info=$("#snapInfo");
+  let hasSnap=false,infected=false;
+  function paint(){
+    state.className="vmstate "+(infected?"infected":"clean");
+    state.textContent=infected?"🔴 VM state: INFECTED — malware running":"🟢 VM state: clean & healthy";
+  }
+  $("#snapBtn").addEventListener("click",()=>{hasSnap=true;info.textContent="📸 Snapshot saved: 'clean-baseline'. You can now do risky things and roll back to this exact moment.";});
+  $("#malBtn").addEventListener("click",()=>{infected=true;paint();
+    info.innerHTML=hasSnap?"💥 Malware detonated. Observe its behaviour... then revert — because you took a snapshot first.":"💥 Malware detonated — and you have <b style='color:var(--pink)'>no snapshot!</b> On a real machine you'd now be rebuilding from scratch. (Lesson: snapshot first.)";});
+  $("#revertBtn").addEventListener("click",()=>{
+    if(!hasSnap){info.innerHTML="⏪ Nothing to revert to — you never took a snapshot. This is why you always snapshot <b>before</b> the risky part.";return;}
+    infected=false;paint();info.textContent="⏪ Reverted to 'clean-baseline'. The VM is pristine again — the malware is gone, as if it never ran. Repeat as often as you like.";
+  });
+  paint();
+})();
+</script>
+</body>
+</html>
