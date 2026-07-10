@@ -2,37 +2,41 @@
 
 # 🛡️ Cybersecurity Foundations — Linux & Windows
 
-`Foundations · red + blue · offense and defense · specialization: to be decided`
+`Foundations · red + blue · offense and defense · learning in public`
 
 </div>
 
 ## 👋 Welcome
 
-This repository is **Module 1 of my journey to become job-ready in cybersecurity** —
-building strong foundations across **both offensive and defensive security** before I
-choose my specialization.
+I'm learning cybersecurity from the ground up and documenting the whole thing in public,
+one topic at a time. This repository is **Module 1 — the foundations**, covering both the
+offensive and defensive sides so the basics are solid before going deeper.
 
-I jumped into tools early; now I'm rebuilding from the ground up, in public. Each topic
-below pairs **security-focused notes** with an **interactive, animated explainer I built
-from scratch** — every concept framed around how attackers exploit it, how defenders
-stop it, and the tools involved.
+For each topic I write **security-focused notes** and build an **interactive, animated
+explainer from scratch** — every concept framed around how attackers exploit it, how
+defenders stop it, and the tools involved.
+
+If you're learning too, this is built to help: the notes are a quick, scannable reference,
+and the interactive pages let you *play* with the ideas (calculate permissions, build a
+log-analysis pipeline, step through a Kerberos login) instead of just reading about them.
+Explore anything that's useful to you.
 
 ---
 
 ## 📚 Module 1 — Foundations
 
-| # | Topic | Interactive |
-|:-:|-------|:-----------:|
-| 1 | [**Computer Architecture**](Computer-fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/inside-the-machine.html) |
-| 2 | [**Data Representation**](Data-Representation.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/data-representation.html) |
-| 3 | [**Operating System Concepts**](Operating-System-Concepts.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/operating-system-concepts.html) |
-| 4 | [**Linux Fundamentals**](Linux-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/linux-fundamentals.html) |
-| 5 | [**Windows Fundamentals**](Windows-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/windows-fundamentals.html) |
-| 6 | [**Active Directory (intro)**](Active-Directory.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/active-directory.html) |
-| 7 | [**Virtualization & Lab Setup**](Virtualization-Lab-Setup.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/virtualization-lab-setup.html) |
+| # | Topic | Notes | Interactive Page |
+|:-:|-------|:-----:|:----------------:|
+| 1 | Computer Architecture | [📖 Notes](Computer-fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/inside-the-machine.html) |
+| 2 | Data Representation | [📖 Notes](Data-Representation.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/data-representation.html) |
+| 3 | Operating System Concepts | [📖 Notes](Operating-System-Concepts.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/operating-system-concepts.html) |
+| 4 | Linux Fundamentals | [📖 Notes](Linux-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/linux-fundamentals.html) |
+| 5 | Windows Fundamentals | [📖 Notes](Windows-Fundamentals.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/windows-fundamentals.html) |
+| 6 | Active Directory (intro) | [📖 Notes](Active-Directory.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/active-directory.html) |
+| 7 | Virtualization & Lab Setup | [📖 Notes](Virtualization-Lab-Setup.md) | [🖥️ Explore](https://faizambn.github.io/linux-windows-fundamentals/interactive/virtualization-lab-setup.html) |
 
-> 💡 **Click a topic name** to read the notes; click **Explore** to open the live, animated explainer
-> (hosted on GitHub Pages — permissions calculators, log-analysis builders, Kerberos flows, and more).
+> 💡 **Notes** open right here on GitHub. **Interactive** pages are hosted on GitHub Pages —
+> live, animated explainers (permissions calculators, log-analysis builders, Kerberos flows, and more).
 
 ### 🗂️ How this repo is organized
 
